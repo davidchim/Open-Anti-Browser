@@ -186,9 +186,11 @@ const editingProfile = ref(null)
 const backendModeLoading = ref(false)
 const systemDark = ref(false)
 let profileRefreshTimer = null
+let backendStatusTimer = null
 let syncViewTimer = null
 let mediaQuery = null
 let mediaQueryListener = null
+const shellMode = new URLSearchParams(window.location.search).get('shell') || ''
 
 const navItems = [
   { key: 'profiles', icon: Monitor },
@@ -262,6 +264,9 @@ watch(
 
 onMounted(async () => {
   try {
+    if (shellMode === 'desktop') {
+      document.documentElement.classList.add('desktop-shell')
+    }
     mediaQuery = window.matchMedia?.('(prefers-color-scheme: dark)') || null
     systemDark.value = !!mediaQuery?.matches
     mediaQueryListener = event => {
@@ -275,15 +280,22 @@ onMounted(async () => {
 
     profileRefreshTimer = window.setInterval(async () => {
       if (document.hidden) return
+      if (activeNav.value !== 'profiles') return
       try {
-        await Promise.all([
-          store.refreshProfiles(),
-          store.getBackendModeStatus(),
-        ])
+        await store.refreshProfiles()
       } catch {
         // ignore polling errors
       }
-    }, 3000)
+    }, 5000)
+
+    backendStatusTimer = window.setInterval(async () => {
+      if (document.hidden) return
+      try {
+        await store.getBackendModeStatus()
+      } catch {
+        // ignore polling errors
+      }
+    }, 8000)
   } catch (error) {
     ElMessage.error(error.message || t('common.loadFailed'))
   }
@@ -294,6 +306,10 @@ onUnmounted(() => {
     window.clearInterval(profileRefreshTimer)
     profileRefreshTimer = null
   }
+  if (backendStatusTimer) {
+    window.clearInterval(backendStatusTimer)
+    backendStatusTimer = null
+  }
   if (syncViewTimer) {
     window.clearTimeout(syncViewTimer)
     syncViewTimer = null
@@ -301,6 +317,7 @@ onUnmounted(() => {
   if (mediaQuery && mediaQueryListener) {
     mediaQuery.removeEventListener?.('change', mediaQueryListener)
   }
+  document.documentElement.classList.remove('desktop-shell')
 })
 
 function showCreateDialog() {

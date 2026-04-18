@@ -10,10 +10,28 @@ Open-Anti-Browser is a local desktop manager for fingerprint browser profiles
 
 It brings two publicly available fingerprint browser engines into one interface for profile creation, proxy management, extension management, browser launching, and local API automation
 
+The interface follows an iOS-inspired style and supports light and dark mode switching
+
+<p align="center">
+  <img src="./frontend/public/banner1.png" alt="Open-Anti-Browser banner 1" width="100%">
+</p>
+
+<p align="center">
+  <img src="./frontend/public/banner2.png" alt="Open-Anti-Browser banner 2" width="100%">
+</p>
+
 ## Download
 
 - Installer release page: [Releases](https://github.com/Wtcity22/Open-Anti-Browser/releases)
 - Source repository: [Wtcity22/Open-Anti-Browser](https://github.com/Wtcity22/Open-Anti-Browser)
+
+## Community group
+
+You are welcome to join the QQ group to share usage tips, report issues, and exchange ideas with other users
+
+<p align="center">
+  <img src="./frontend/public/qq.jpg" alt="Open-Anti-Browser QQ group" width="260">
+</p>
 
 ## Engine sources
 
@@ -183,3 +201,9 @@ dist\installer\Open-Anti-Browser-Setup.exe
 - The source repository intentionally excludes engine binaries, build outputs, runtime data, and local test cache
 - Frontend source code is under `frontend/src`
 - Backend API entry is `backend/main.py`
+
+## Usage boundaries
+
+- This project is intended for local development, automation debugging, testing, and compliant research
+- Do not use this project for illegal activity, unauthorized access, platform abuse, or infringement
+- Users are responsible for following local laws and the rules of any platform they interact with

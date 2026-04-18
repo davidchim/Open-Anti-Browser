@@ -10,10 +10,28 @@ Open-Anti-Browser 是一个本地桌面端指纹浏览器管理器
 
 它把两套可公开获取的指纹内核整理到同一个界面里，方便创建配置、管理代理、统一扩展、启动浏览器，以及通过本地 API 接入自动化流程
 
+界面采用 iOS 风格设计，支持浅色和深色模式切换
+
+<p align="center">
+  <img src="./frontend/public/banner1.png" alt="Open-Anti-Browser banner 1" width="100%">
+</p>
+
+<p align="center">
+  <img src="./frontend/public/banner2.png" alt="Open-Anti-Browser banner 2" width="100%">
+</p>
+
 ## 下载
 
 - 安装包发布页: [Releases](https://github.com/Wtcity22/Open-Anti-Browser/releases)
 - 源码仓库: [Wtcity22/Open-Anti-Browser](https://github.com/Wtcity22/Open-Anti-Browser)
+
+## 交流群
+
+欢迎加入 QQ 交流群，一起交流使用经验、反馈问题、分享自动化玩法
+
+<p align="center">
+  <img src="./frontend/public/qq.jpg" alt="Open-Anti-Browser QQ 交流群" width="260">
+</p>
 
 ## 内核来源
 
@@ -183,3 +201,9 @@ dist\installer\Open-Anti-Browser-Setup.exe
 - 源码仓库默认不包含内核大文件、构建产物、运行数据和本地测试缓存
 - 如果你要自行修改界面，前端源码位于 `frontend/src`
 - 如果你要扩展后端接口，主入口位于 `backend/main.py`
+
+## 使用边界
+
+- 本项目仅用于本地开发、自动化调试、测试验证和合规研究
+- 禁止将本项目用于非法活动、未授权访问、批量滥用平台规则或其他侵权行为
+- 使用者需自行确认所在地区的法律法规以及目标平台的使用规则

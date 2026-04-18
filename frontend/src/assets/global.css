@@ -316,6 +316,70 @@ html.dark .app-main::after {
     transparent 70%);
 }
 
+html.desktop-shell {
+  --oab-blur: 0px;
+  --oab-blur-heavy: 0px;
+  --oab-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --oab-shadow-md: 0 3px 10px rgba(0, 0, 0, 0.04);
+  --oab-shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.05);
+  --oab-shadow-xl: 0 12px 30px rgba(0, 0, 0, 0.08);
+  --oab-panel-bg: #ffffff;
+  --oab-panel-soft-bg: #ffffff;
+  --oab-header-bg: rgba(255, 255, 255, 0.94);
+  --oab-card-bg: #ffffff;
+  --oab-border: rgba(60, 60, 67, 0.1);
+}
+
+html.dark.desktop-shell {
+  --oab-panel-bg: #1c1c1e;
+  --oab-panel-soft-bg: #1f1f22;
+  --oab-header-bg: rgba(22, 22, 26, 0.96);
+  --oab-card-bg: #222226;
+  --oab-border: rgba(255, 255, 255, 0.08);
+}
+
+html.desktop-shell .app-main::before,
+html.desktop-shell .app-main::after {
+  animation: none !important;
+  opacity: 0.35;
+}
+
+html.desktop-shell .status-card,
+html.desktop-shell .app-header,
+html.desktop-shell .page-panel,
+html.desktop-shell .page-panel.soft,
+html.desktop-shell .summary-item,
+html.desktop-shell .saved-proxy-card,
+html.desktop-shell .extension-card,
+html.desktop-shell .api-flow-card,
+html.desktop-shell .api-endpoint-card,
+html.desktop-shell .api-automation-card,
+html.desktop-shell .el-button.is-plain,
+html.desktop-shell .el-dialog,
+html.desktop-shell .el-overlay-dialog,
+html.desktop-shell .el-dropdown-menu,
+html.desktop-shell .el-message-box,
+html.desktop-shell .el-message,
+html.desktop-shell .el-pagination .btn-prev,
+html.desktop-shell .el-pagination .btn-next,
+html.desktop-shell .el-pagination .el-pager li {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.desktop-shell .status-card:hover,
+html.desktop-shell .page-panel:hover,
+html.desktop-shell .page-panel.soft:hover,
+html.desktop-shell .saved-proxy-card:hover,
+html.desktop-shell .extension-card:hover,
+html.desktop-shell .summary-item:hover {
+  transform: none;
+}
+
+html.desktop-shell .el-button:active {
+  transform: none;
+}
+
 .app-header {
   background: var(--oab-header-bg);
   backdrop-filter: blur(var(--oab-blur-heavy)) saturate(190%);

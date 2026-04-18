@@ -82,13 +82,9 @@ def _desktop_instance_server_name() -> str:
 
 def _configure_desktop_webview_env() -> None:
     desired_flags = [
-        "--disable-gpu",
-        "--disable-gpu-compositing",
-        "--disable-gpu-sandbox",
-        "--use-angle=swiftshader",
-        "--disable-features=VizDisplayCompositor,CalculateNativeWinOcclusion,BackForwardCache",
-        "--disable-renderer-backgrounding",
-        "--disable-backgrounding-occluded-windows",
+        "--disable-features=CalculateNativeWinOcclusion,BackForwardCache",
+        "--enable-gpu-rasterization",
+        "--enable-zero-copy",
     ]
     current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").strip()
     merged_flags = [flag for flag in current_flags.split() if flag]
@@ -98,7 +94,7 @@ def _configure_desktop_webview_env() -> None:
             merged_flags.append(flag)
             existing_flags.add(flag)
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(merged_flags).strip()
-    os.environ.setdefault("QT_OPENGL", "software")
+    os.environ.setdefault("QT_OPENGL", "desktop")
 
 
 def run_backend_only(port: int | None = None) -> int:
@@ -131,7 +127,8 @@ def run_desktop() -> int:
     from PySide6.QtWebEngineWidgets import QWebEngineView
     from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMenu, QMessageBox, QSystemTrayIcon
 
-    QApplication.setAttribute(Qt.AA_UseSoftwareOpenGL, True)
+    QApplication.setAttribute(Qt.AA_UseDesktopOpenGL, True)
+    QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
 
     class DirectoryPickerBridge(QObject):
         pick_directory_requested = Signal(str, str)
@@ -314,7 +311,7 @@ def run_desktop() -> int:
         QMessageBox.critical(None, APP_TITLE, f"启动失败：\n{exc}")
         return 1
 
-    window = DesktopMainWindow(f"http://127.0.0.1:{port}", server, thread)
+    window = DesktopMainWindow(f"http://127.0.0.1:{port}?shell=desktop", server, thread)
     directory_picker_bridge = DirectoryPickerBridge(window)
 
     def handle_instance_activation() -> None:
