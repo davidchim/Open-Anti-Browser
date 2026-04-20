@@ -7,7 +7,6 @@
           <p class="panel-desc">{{ copy.desc }}</p>
         </div>
         <div class="action-row">
-          <el-button plain @click="openExternalDocs">{{ copy.openExternal }}</el-button>
           <el-button plain @click="openUrl('https://github.com/Kaliiiiiiiiii-Vinyzu/patchright')">Patchright</el-button>
           <el-button plain @click="openUrl('https://github.com/LoseNine/ruyipage')">RuyiPage</el-button>
         </div>
@@ -212,7 +211,6 @@ const store = useProfileStore()
 const apiInfo = computed(() => store.apiInfo)
 const baseUrl = computed(() => apiInfo.value?.current_base_url || 'http://127.0.0.1:8000/open-api')
 const apiKey = computed(() => apiInfo.value?.api_key || 'YOUR_API_KEY')
-const docsUrl = computed(() => apiInfo.value?.current_docs_url || `${window.location.origin}?view=apiDocs`)
 const profileId = computed(() => store.profiles?.[0]?.id || 'PROFILE_ID')
 
 const copy = computed(() => {
@@ -220,7 +218,6 @@ const copy = computed(() => {
     return {
       title: 'Open-Anti-Browser API Guide',
       desc: 'A readable guide for local API calls, launch responses, debug ports, and automation examples',
-      openExternal: 'Open this page externally',
       baseUrl: 'Base URL',
       apiKey: 'API Key',
       authHeader: 'Required request header',
@@ -282,7 +279,6 @@ const copy = computed(() => {
   return {
     title: 'Open-Anti-Browser API 调用说明',
     desc: '这里按真实使用流程说明本地 API、启动返回值、调试端口和自动化接入方式',
-    openExternal: '在浏览器中打开本页',
     baseUrl: '调用地址',
     apiKey: 'API Key',
     authHeader: '请求必须携带的请求头',
@@ -760,10 +756,6 @@ function methodTag(method) {
   if (method === 'POST') return 'primary'
   if (method === 'DELETE') return 'danger'
   return 'info'
-}
-
-async function openExternalDocs() {
-  await openUrl(docsUrl.value)
 }
 
 async function openUrl(url) {

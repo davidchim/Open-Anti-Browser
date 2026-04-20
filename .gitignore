@@ -41,6 +41,9 @@ tools/innosetup-*.exe
 debug-exe.err.txt
 debug-exe.out.txt
 Open-Anti-Browser-Debug.spec
+.codex-artifacts/
+.codex-*.log
+frontend/*.log
 
 # Screenshots and local notes
 ui-*.png

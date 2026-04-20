@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import random
 import secrets
@@ -30,6 +31,8 @@ from .services.network import (
     slugify,
     test_proxy_connectivity,
 )
+from .services.synchronizer import BrowserSynchronizer, CdpPageClient
+from .services.window_manager import arrange_windows, list_monitors, set_uniform_size, show_windows
 from .storage import JsonStorage
 
 
@@ -40,6 +43,7 @@ class BrowserManager:
         self.runtime_sessions: dict[str, dict[str, Any]] = {}
         self.pending_starts: set[str] = set()
         self._session_lock = threading.RLock()
+        self.synchronizer = BrowserSynchronizer(self._resolve_runtime_session, self._resolve_profile_summary)
 
     def bootstrap(self) -> dict[str, Any]:
         return {
@@ -201,6 +205,7 @@ class BrowserManager:
                     proxy_bridge.stop()
                 except Exception:
                     pass
+        self.synchronizer.status()
         if quiet:
             return None
         return self._profile_response(self.get_profile(profile_id))
@@ -238,6 +243,108 @@ class BrowserManager:
             "message": "连接成功",
             "data": connect_result,
         }
+
+    def get_synchronizer_status(self) -> dict[str, Any]:
+        return self.synchronizer.status()
+
+    def start_synchronizer(self, payload: dict[str, Any]) -> dict[str, Any]:
+        master_profile_id = payload.get("master_profile_id")
+        follower_profile_ids = payload.get("follower_profile_ids") or []
+        options = payload.get("options") or {}
+        return self.synchronizer.start(master_profile_id, follower_profile_ids, options)
+
+    def stop_synchronizer(self) -> dict[str, Any]:
+        return self.synchronizer.stop()
+
+    def navigate_synchronizer(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return self.synchronizer.navigate(
+            payload.get("url"),
+            include_master=bool(payload.get("include_master", True)),
+        )
+
+    def sync_master_url_to_followers(self) -> dict[str, Any]:
+        return self.synchronizer.sync_master_url()
+
+    def list_sync_monitors(self) -> list[dict[str, Any]]:
+        return list_monitors()
+
+    def show_sync_windows(self, profile_ids: list[str]) -> dict[str, Any]:
+        targets = self._normalize_running_profile_ids(profile_ids)
+        return show_windows(self._resolve_runtime_session, targets)
+
+    def uniform_sync_windows(self, profile_ids: list[str]) -> dict[str, Any]:
+        targets = self._normalize_running_profile_ids(profile_ids)
+        return set_uniform_size(self._resolve_runtime_session, targets)
+
+    def arrange_sync_windows(self, payload: dict[str, Any]) -> dict[str, Any]:
+        targets = self._normalize_running_profile_ids(payload.get("profile_ids") or [])
+        return arrange_windows(
+            self._resolve_runtime_session,
+            targets,
+            monitor_id=str(payload.get("monitor_id") or "").strip() or None,
+            arrange_mode=str(payload.get("arrange_mode") or "grid").strip().lower() or "grid",
+        )
+
+    def run_sync_text_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        targets = self._normalize_running_profile_ids(payload.get("profile_ids") or [])
+        action = str(payload.get("action") or "").strip().lower()
+        if action not in {"clear", "same", "random", "designated"}:
+            raise ValueError("不支持的文本操作")
+
+        values = self._build_text_action_values(action, targets, payload)
+        updated = 0
+        clients = self._open_cdp_clients(targets)
+        try:
+            for profile_id, client in clients:
+                value = values.get(profile_id, "")
+                client.evaluate(_build_active_text_expression(action, value))
+                updated += 1
+        finally:
+            for _, client in clients:
+                client.close()
+        return {"ok": True, "count": updated, "action": action}
+
+    def run_sync_tab_action(self, payload: dict[str, Any]) -> dict[str, Any]:
+        targets = self._normalize_running_profile_ids(payload.get("profile_ids") or [])
+        action = str(payload.get("action") or "").strip().lower()
+        if action not in {"open_urls", "close_blank", "close_current", "close_others", "unify_tabs"}:
+            raise ValueError("不支持的标签页操作")
+
+        clients = self._open_cdp_clients(targets)
+        updated = 0
+        try:
+            if action == "open_urls":
+                urls = [item for item in (payload.get("urls") or []) if str(item or "").strip()]
+                if not urls:
+                    raise ValueError("请至少填写一个网址")
+                first_in_current = bool(payload.get("first_in_current", True))
+                for _, client in clients:
+                    if first_in_current:
+                        client.navigate(urls[0])
+                        for url in urls[1:]:
+                            client.create_target(url)
+                    else:
+                        for url in urls:
+                            client.create_target(url)
+                    updated += 1
+            elif action == "unify_tabs":
+                master_id = str(payload.get("master_profile_id") or "").strip() or targets[0]
+                master_client = next((client for profile_id, client in clients if profile_id == master_id), None)
+                if not master_client:
+                    raise ValueError("没有找到可用的主窗口")
+                master_url = master_client.get_location()
+                for profile_id, client in clients:
+                    if profile_id == master_id:
+                        continue
+                    client.navigate(master_url)
+                    updated += 1
+            else:
+                for _, client in clients:
+                    updated += self._apply_tab_cleanup_action(client, action)
+        finally:
+            for _, client in clients:
+                client.close()
+        return {"ok": True, "count": updated, "action": action}
 
     def list_saved_proxies(self) -> list[dict[str, Any]]:
         return [item.model_dump(mode="json") for item in self.get_settings().saved_proxies]
@@ -552,6 +659,107 @@ class BrowserManager:
 
         shutil.rmtree(profile_dir, ignore_errors=True)
 
+    def _normalize_running_profile_ids(self, profile_ids: list[str]) -> list[str]:
+        targets: list[str] = []
+        for item in profile_ids:
+            profile_id = str(item or "").strip()
+            if not profile_id or profile_id in targets:
+                continue
+            runtime = self._resolve_runtime_session(profile_id)
+            if runtime and runtime.get("remote_debugging_port"):
+                targets.append(profile_id)
+        if not targets:
+            raise ValueError("请至少选择一个已启动的浏览器")
+        return targets
+
+    def _open_cdp_clients(self, profile_ids: list[str]) -> list[tuple[str, CdpPageClient]]:
+        clients: list[tuple[str, CdpPageClient]] = []
+        for profile_id in profile_ids:
+            runtime = self._resolve_runtime_session(profile_id)
+            if not runtime or not runtime.get("remote_debugging_port"):
+                continue
+            client = CdpPageClient(profile_id, int(runtime["remote_debugging_port"]))
+            client.connect()
+            clients.append((profile_id, client))
+        if not clients:
+            raise RuntimeError("没有可用的调试连接")
+        return clients
+
+    def _build_text_action_values(self, action: str, profile_ids: list[str], payload: dict[str, Any]) -> dict[str, str]:
+        if action == "clear":
+            return {profile_id: "" for profile_id in profile_ids}
+        if action == "same":
+            value = str(payload.get("text") or "")
+            return {profile_id: value for profile_id in profile_ids}
+        if action == "random":
+            start = float(payload.get("range_start") or 0)
+            end = float(payload.get("range_end") or 0)
+            minimum = min(start, end)
+            maximum = max(start, end)
+            precision = int(payload.get("precision") or 3)
+            return {
+                profile_id: f"{random.uniform(minimum, maximum):.{precision}f}"
+                for profile_id in profile_ids
+            }
+
+        groups = payload.get("groups") or []
+        lines: list[str] = []
+        for item in groups:
+            if not isinstance(item, dict):
+                continue
+            content = str(item.get("content") or "")
+            group_lines = [line for line in (value.strip() for value in content.splitlines()) if line]
+            lines.extend(group_lines)
+        if not lines:
+            raise ValueError("请先填写指定文本内容")
+        mode = str(payload.get("designated_mode") or "sequential").strip().lower()
+        if mode == "random":
+            return {profile_id: random.choice(lines) for profile_id in profile_ids}
+        if mode == "fixed":
+            fixed_value = str(payload.get("fixed_text") or "").strip() or lines[0]
+            return {profile_id: fixed_value for profile_id in profile_ids}
+        return {
+            profile_id: lines[index % len(lines)]
+            for index, profile_id in enumerate(profile_ids)
+        }
+
+    @staticmethod
+    def _apply_tab_cleanup_action(client: CdpPageClient, action: str) -> int:
+        targets = [
+            item
+            for item in client.list_targets()
+            if isinstance(item, dict)
+            and str(item.get("type") or "").lower() in {"page", "tab"}
+            and item.get("id")
+        ]
+        if not targets:
+            return 0
+
+        current_id = client.current_target_id()
+        close_ids: list[str] = []
+        if action == "close_blank":
+            for item in targets:
+                url = str(item.get("url") or "")
+                if url in {"about:blank", "chrome://newtab/", "chrome://new-tab-page/", "about:newtab"}:
+                    close_ids.append(str(item["id"]))
+        elif action == "close_current":
+            if current_id:
+                close_ids.append(current_id)
+        elif action == "close_others":
+            for item in targets:
+                target_id = str(item["id"])
+                if target_id != current_id:
+                    close_ids.append(target_id)
+
+        closed = 0
+        for target_id in close_ids:
+            try:
+                client.close_target(target_id)
+                closed += 1
+            except Exception:
+                continue
+        return closed
+
     def _refresh_runtime_sessions(self) -> None:
         stale_ids = []
         with self._session_lock:
@@ -582,6 +790,22 @@ class BrowserManager:
     def _get_runtime_session(self, profile_id: str) -> dict[str, Any] | None:
         with self._session_lock:
             return self.runtime_sessions.get(profile_id)
+
+    def _resolve_runtime_session(self, profile_id: str) -> dict[str, Any] | None:
+        self._refresh_runtime_sessions()
+        payload = self._get_runtime_session(profile_id)
+        if not payload:
+            return None
+        return payload["session"].model_dump(mode="json")
+
+    def _resolve_profile_summary(self, profile_id: str) -> dict[str, Any] | None:
+        try:
+            profile = self.get_profile(profile_id)
+        except KeyError:
+            return None
+        payload = profile.model_dump(mode="json")
+        payload["status"] = self._get_profile_status(profile_id)
+        return payload
 
     def _get_profile_status(self, profile_id: str, session: dict[str, Any] | None = None) -> str:
         active_session = session or self._get_runtime_session(profile_id)
@@ -619,3 +843,40 @@ class BrowserManager:
         if value not in {"chrome", "firefox"}:
             raise ValueError("扩展内核必须是 chrome 或 firefox")
         return value
+
+
+def _build_active_text_expression(action: str, value: str) -> str:
+    action_json = json.dumps(str(action or ""), ensure_ascii=False)
+    value_json = json.dumps(str(value or ""), ensure_ascii=False)
+    return f"""
+(() => {{
+  const action = {action_json};
+  const value = {value_json};
+  const pickTarget = () => {{
+    const active = document.activeElement;
+    if (active && (active.matches?.('input, textarea, select') || active.isContentEditable)) {{
+      return active;
+    }}
+    return document.querySelector('input, textarea, [contenteditable="true"], select');
+  }};
+  const target = pickTarget();
+  if (!target) return false;
+  target.focus?.();
+  if (action === 'clear') {{
+    if (target.isContentEditable) {{
+      target.innerText = '';
+    }} else if ('value' in target) {{
+      target.value = '';
+    }}
+  }} else if (target.isContentEditable) {{
+    target.innerText = value;
+  }} else if ('value' in target) {{
+    target.value = value;
+  }} else {{
+    return false;
+  }}
+  target.dispatchEvent(new Event('input', {{ bubbles: true }}));
+  target.dispatchEvent(new Event('change', {{ bubbles: true }}));
+  return true;
+}})()
+"""

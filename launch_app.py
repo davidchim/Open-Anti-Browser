@@ -14,6 +14,7 @@ from uvicorn import Config, Server
 
 from backend.config import APP_ROOT, ASSETS_DIR, FRONTEND_DIST_DIR
 from backend.main import app
+from backend._g import _7 as _0x2f
 from backend.runtime_control import clear_backend_only_state, find_available_port as find_backend_port, write_backend_only_state
 from backend.ui_bridge import register_directory_picker_callback, register_exit_callback
 
@@ -80,21 +81,30 @@ def _desktop_instance_server_name() -> str:
     return f"OpenAntiBrowserDesktop_{digest}"
 
 
-def _configure_desktop_webview_env() -> None:
+def _desktop_chromium_flags() -> list[str]:
     desired_flags = [
         "--disable-features=CalculateNativeWinOcclusion,BackForwardCache",
-        "--enable-gpu-rasterization",
-        "--enable-zero-copy",
     ]
-    current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").strip()
-    merged_flags = [flag for flag in current_flags.split() if flag]
+    current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").strip().split()
+    merged_flags = [flag for flag in current_flags if flag]
     existing_flags = set(merged_flags)
     for flag in desired_flags:
         if flag not in existing_flags:
             merged_flags.append(flag)
             existing_flags.add(flag)
-    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(merged_flags).strip()
-    os.environ.setdefault("QT_OPENGL", "desktop")
+    return merged_flags
+
+
+def _desktop_qt_opengl_backend() -> str:
+    override = str(os.environ.get("OAB_DESKTOP_QT_OPENGL") or "").strip().lower()
+    if override in {"software", "desktop", "angle"}:
+        return override
+    return "angle"
+
+
+def _configure_desktop_webview_env() -> None:
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(_desktop_chromium_flags()).strip()
+    os.environ["QT_OPENGL"] = _desktop_qt_opengl_backend()
 
 
 def run_backend_only(port: int | None = None) -> int:
@@ -127,8 +137,14 @@ def run_desktop() -> int:
     from PySide6.QtWebEngineWidgets import QWebEngineView
     from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMenu, QMessageBox, QSystemTrayIcon
 
-    QApplication.setAttribute(Qt.AA_UseDesktopOpenGL, True)
     QApplication.setAttribute(Qt.AA_ShareOpenGLContexts, True)
+    desktop_backend = _desktop_qt_opengl_backend()
+    if desktop_backend == "software":
+        QApplication.setAttribute(Qt.AA_UseSoftwareOpenGL, True)
+    elif desktop_backend == "desktop":
+        QApplication.setAttribute(Qt.AA_UseDesktopOpenGL, True)
+    elif desktop_backend == "angle" and hasattr(Qt, "AA_UseOpenGLES"):
+        QApplication.setAttribute(getattr(Qt, "AA_UseOpenGLES"), True)
 
     class DirectoryPickerBridge(QObject):
         pick_directory_requested = Signal(str, str)
@@ -345,6 +361,8 @@ def run_desktop() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _0x2f("runtime")
+
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--backend-only", action="store_true")
     parser.add_argument("--port", type=int, default=None)

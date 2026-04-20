@@ -1,12 +1,12 @@
-const decoder = new TextDecoder()
+const _0x4fd2 = new TextDecoder()
 
-function decodeBase64(value) {
+function _0x8a12(value) {
   const binary = atob(value)
   const bytes = Uint8Array.from(binary, item => item.charCodeAt(0))
-  return decoder.decode(bytes)
+  return _0x4fd2.decode(bytes)
 }
 
-const NOTICE_TEXT = {
+const _0x7be1 = {
   windowTitle: 'T3Blbi1BbnRpLUJyb3dzZXIgwrcg5byA5rqQ5oyH57q55rWP6KeI5ZmoIC8gT3Blbi1zb3VyY2UgZmluZ2VycHJpbnQgYnJvd3Nlcg==',
   sidebarSubtitle: {
     'zh-CN': '5byA5rqQ5oyH57q55rWP6KeI5Zmo',
@@ -36,28 +36,28 @@ const NOTICE_TEXT = {
   confirmText: '5oiR5bey5LqG6KejIC8gSSB1bmRlcnN0YW5k',
 }
 
-function resolveLocale(locale) {
+function _0x3e29(locale) {
   return locale === 'en-US' ? 'en-US' : 'zh-CN'
 }
 
 export function getOpenSourceWindowTitle() {
-  return decodeBase64(NOTICE_TEXT.windowTitle)
+  return _0x8a12(_0x7be1.windowTitle)
 }
 
 export function getOpenSourceSidebarSubtitle(locale) {
-  const currentLocale = resolveLocale(locale)
-  return decodeBase64(NOTICE_TEXT.sidebarSubtitle[currentLocale])
+  const currentLocale = _0x3e29(locale)
+  return _0x8a12(_0x7be1.sidebarSubtitle[currentLocale])
 }
 
 export function getOpenSourceNotice() {
   return {
-    title: decodeBase64(NOTICE_TEXT.noticeTitle),
-    introZh: decodeBase64(NOTICE_TEXT.introZh),
-    introEn: decodeBase64(NOTICE_TEXT.introEn),
-    pairs: NOTICE_TEXT.pairs.map(item => ({
-      zh: decodeBase64(item.zh),
-      en: decodeBase64(item.en),
+    title: _0x8a12(_0x7be1.noticeTitle),
+    introZh: _0x8a12(_0x7be1.introZh),
+    introEn: _0x8a12(_0x7be1.introEn),
+    pairs: _0x7be1.pairs.map(item => ({
+      zh: _0x8a12(item.zh),
+      en: _0x8a12(item.en),
     })),
-    confirmText: decodeBase64(NOTICE_TEXT.confirmText),
+    confirmText: _0x8a12(_0x7be1.confirmText),
   }
 }

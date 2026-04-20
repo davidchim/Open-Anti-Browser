@@ -21,6 +21,7 @@ export function createDefaultProfile(settings = null) {
       username: '',
       password: '',
     },
+    proxy_bypass_rules: [],
     storage: {
       root_dir: settings?.user_data_root || '',
     },
@@ -107,6 +108,8 @@ export const useProfileStore = defineStore('profile', () => {
   const engines = ref({})
   const downloads = ref({})
   const apiInfo = ref(null)
+  const synchronizer = ref(null)
+  const syncMonitors = ref([])
   const loading = ref(false)
   const searchQuery = ref('')
   const filterGroup = ref('')
@@ -183,6 +186,7 @@ export const useProfileStore = defineStore('profile', () => {
       engines.value = data.engines
       downloads.value = data.downloads || {}
       await refreshApiInfo()
+      await refreshSynchronizer()
       return data
     } finally {
       loading.value = false
@@ -352,6 +356,56 @@ export const useProfileStore = defineStore('profile', () => {
     return apiInfo.value
   }
 
+  async function refreshSynchronizer() {
+    synchronizer.value = await api.get('/api/synchronizer/status')
+    return synchronizer.value
+  }
+
+  async function refreshSyncMonitors() {
+    syncMonitors.value = await api.get('/api/synchronizer/monitors')
+    return syncMonitors.value
+  }
+
+  async function startSynchronizer(payload) {
+    synchronizer.value = await api.post('/api/synchronizer/start', payload)
+    return synchronizer.value
+  }
+
+  async function stopSynchronizer() {
+    synchronizer.value = await api.post('/api/synchronizer/stop', {})
+    return synchronizer.value
+  }
+
+  async function navigateSynchronizer(payload) {
+    synchronizer.value = await api.post('/api/synchronizer/navigate', payload)
+    return synchronizer.value
+  }
+
+  async function syncMasterUrlToFollowers() {
+    synchronizer.value = await api.post('/api/synchronizer/sync-master-url', {})
+    return synchronizer.value
+  }
+
+  async function showSyncWindows(profileIds) {
+    return api.post('/api/synchronizer/show-windows', { profile_ids: profileIds })
+  }
+
+  async function uniformSyncWindows(profileIds) {
+    return api.post('/api/synchronizer/uniform-size', { profile_ids: profileIds })
+  }
+
+  async function arrangeSyncWindows(payload) {
+    return api.post('/api/synchronizer/arrange-windows', payload)
+  }
+
+  async function runSyncTextAction(payload) {
+    return api.post('/api/synchronizer/text-action', payload)
+  }
+
+  async function runSyncTabAction(payload) {
+    return api.post('/api/synchronizer/tab-action', payload)
+  }
+
   async function regenerateApiKey() {
     apiInfo.value = await api.post('/api/open-api/regenerate-key', {})
     if (settings.value?.api_access) {
@@ -407,6 +461,8 @@ export const useProfileStore = defineStore('profile', () => {
     engines,
     downloads,
     apiInfo,
+    synchronizer,
+    syncMonitors,
     loading,
     searchQuery,
     filterGroup,
@@ -446,6 +502,17 @@ export const useProfileStore = defineStore('profile', () => {
     importProfiles,
     exportProfiles,
     refreshApiInfo,
+    refreshSynchronizer,
+    refreshSyncMonitors,
+    startSynchronizer,
+    stopSynchronizer,
+    navigateSynchronizer,
+    syncMasterUrlToFollowers,
+    showSyncWindows,
+    uniformSyncWindows,
+    arrangeSyncWindows,
+    runSyncTextAction,
+    runSyncTabAction,
     regenerateApiKey,
     getBackendModeStatus,
     startBackendMode,

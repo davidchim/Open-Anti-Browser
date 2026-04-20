@@ -9,7 +9,13 @@ from typing import Any
 
 from ..config import bundled_engine_executable
 from ..models import AppSettings, BrowserProfile
-from .network import LocalHttpProxyBridge, find_free_port, proxy_to_profile_proxy, resolve_geo_profile
+from .network import (
+    LocalHttpProxyBridge,
+    build_chrome_proxy_bypass_list,
+    find_free_port,
+    proxy_to_profile_proxy,
+    resolve_geo_profile,
+)
 
 
 CREATE_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -47,6 +53,7 @@ def launch_chrome_profile(
         str(executable_path),
         f"--user-data-dir={user_data_dir}",
         f"--remote-debugging-port={remote_debugging_port}",
+        "--remote-allow-origins=*",
         "--no-first-run",
         "--no-default-browser-check",
         "--password-store=basic",
@@ -81,6 +88,9 @@ def launch_chrome_profile(
 
     if browser_proxy:
         _upsert_arg(launch_args, "--proxy-server", browser_proxy)
+        proxy_bypass_list = _build_chrome_proxy_bypass_list(profile.proxy_bypass_rules)
+        if proxy_bypass_list:
+            _upsert_arg(launch_args, "--proxy-bypass-list", proxy_bypass_list)
 
     for raw_arg in profile.chrome.launch_args:
         raw_arg = str(raw_arg or "").strip()
@@ -128,6 +138,10 @@ def _split_arg(raw_arg: str) -> tuple[str, str | None]:
         name, value = raw_arg.split("=", 1)
         return name, value
     return raw_arg, None
+
+
+def _build_chrome_proxy_bypass_list(values: list[str] | None) -> str:
+    return build_chrome_proxy_bypass_list(values)
 
 
 def _upsert_arg(args: list[str], name: str, value: Any | None = None) -> None:

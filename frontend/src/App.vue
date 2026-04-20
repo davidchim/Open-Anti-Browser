@@ -155,6 +155,7 @@ import {
   Monitor,
   FolderOpened,
   Connection,
+  Operation,
   Setting,
   Plus,
   Refresh,
@@ -170,17 +171,22 @@ import ProfileDialog from './components/ProfileDialog.vue'
 import GroupManager from './components/GroupManager.vue'
 import ProxyManager from './components/ProxyManager.vue'
 import ExtensionManager from './components/ExtensionManager.vue'
+import SyncManager from './components/SyncManager.vue'
 import AppSettings from './components/AppSettings.vue'
 import ApiAccess from './components/ApiAccess.vue'
 import ApiDocs from './components/ApiDocs.vue'
 import { getLocale, setLocale } from './i18n/index.js'
-import { getOpenSourceNotice, getOpenSourceSidebarSubtitle, getOpenSourceWindowTitle } from './lib/openSourceNotice.js'
+import {
+  getOpenSourceNotice as _0x91f3,
+  getOpenSourceSidebarSubtitle as _0x72ad,
+  getOpenSourceWindowTitle as _0x18c4,
+} from './lib/openSourceNotice.js'
 
 const { t } = useI18n()
 const store = useProfileStore()
-const FIRST_USE_NOTICE_KEY = 'oab:first-use-notice:v2'
+const _0x5c10 = 'oab:first-use-notice:v2'
 
-const validNavKeys = new Set(['profiles', 'groups', 'proxies', 'extensions', 'apiAccess', 'apiDocs', 'settings'])
+const validNavKeys = new Set(['profiles', 'syncer', 'groups', 'proxies', 'extensions', 'apiAccess', 'apiDocs', 'settings'])
 const activeNav = ref(resolveInitialNav())
 const dialogVisible = ref(false)
 const dialogMode = ref('create')
@@ -196,6 +202,7 @@ const shellMode = new URLSearchParams(window.location.search).get('shell') || ''
 
 const navItems = [
   { key: 'profiles', icon: Monitor },
+  { key: 'syncer', icon: Operation },
   { key: 'groups', icon: FolderOpened },
   { key: 'proxies', icon: Connection },
   { key: 'extensions', icon: Files },
@@ -209,7 +216,7 @@ const themeMode = computed(() => store.settings?.theme_mode || 'system')
 const themeLabel = computed(() => t(`theme.${themeMode.value}`))
 const languageCode = computed(() => store.settings?.language || getLocale())
 const languageLabel = computed(() => t(languageCode.value === 'en-US' ? 'language.enUS' : 'language.zhCN'))
-const sidebarSubtitle = computed(() => getOpenSourceSidebarSubtitle(languageCode.value))
+const sidebarSubtitle = computed(() => _0x72ad(languageCode.value))
 const themeIcon = computed(() => {
   if (themeMode.value === 'dark') return Moon
   if (themeMode.value === 'light') return Sunny
@@ -217,6 +224,7 @@ const themeIcon = computed(() => {
 })
 const currentViewComponent = computed(() => {
   if (activeNav.value === 'groups') return GroupManager
+  if (activeNav.value === 'syncer') return SyncManager
   if (activeNav.value === 'proxies') return ProxyManager
   if (activeNav.value === 'extensions') return ExtensionManager
   if (activeNav.value === 'apiAccess') return ApiAccess
@@ -250,7 +258,7 @@ watch(
   value => {
     const locale = value || getLocale()
     setLocale(locale)
-    document.title = getOpenSourceWindowTitle(locale)
+    document.title = _0x18c4(locale)
   },
   { immediate: true },
 )
@@ -284,7 +292,7 @@ onMounted(async () => {
 
     await store.bootstrap()
     await store.getBackendModeStatus()
-    await showFirstUseNoticeIfNeeded()
+    await _0x31ab()
 
     profileRefreshTimer = window.setInterval(async () => {
       if (document.hidden) return
@@ -448,11 +456,11 @@ function syncViewQuery(view) {
   window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
-async function showFirstUseNoticeIfNeeded() {
-  if (localStorage.getItem(FIRST_USE_NOTICE_KEY) === '1') {
+async function _0x31ab() {
+  if (localStorage.getItem(_0x5c10) === '1') {
     return
   }
-  const notice = getOpenSourceNotice(languageCode.value)
+  const notice = _0x91f3(languageCode.value)
   const html = `
     <div class="first-use-notice">
       <div class="notice-paragraph">
@@ -477,6 +485,6 @@ async function showFirstUseNoticeIfNeeded() {
     showClose: false,
     customClass: 'first-use-notice-box',
   })
-  localStorage.setItem(FIRST_USE_NOTICE_KEY, '1')
+  localStorage.setItem(_0x5c10, '1')
 }
 </script>

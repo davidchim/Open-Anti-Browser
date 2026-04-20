@@ -5,12 +5,13 @@ import secrets
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ProfileEngine = Literal["chrome", "firefox"]
 ProxyType = Literal["none", "http", "https", "socks5"]
 ModeChoice = Literal["auto", "manual", "random"]
 ThemeMode = Literal["system", "light", "dark"]
+ProxyBypassMatchMode = Literal["exact", "subdomains"]
 
 
 def utc_now_iso() -> str:
@@ -27,6 +28,28 @@ class ProxySettings(ModelBase):
     port: int | None = None
     username: str = ""
     password: str = ""
+
+
+class ProxyBypassRule(ModelBase):
+    domain: str = ""
+    match_mode: ProxyBypassMatchMode = "subdomains"
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def _normalize_domain(cls, value: str) -> str:
+        raw = str(value or "").strip().lower()
+        if not raw:
+            return ""
+        raw = raw.removeprefix("*.").removeprefix(".")
+        if "://" in raw:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(raw)
+            raw = parsed.hostname or ""
+        raw = raw.split("/", 1)[0]
+        if raw.count(":") == 1 and not raw.startswith("["):
+            raw = raw.rsplit(":", 1)[0]
+        return raw.strip().strip(".")
 
 
 class SavedProxy(ProxySettings):
@@ -131,12 +154,32 @@ class BrowserProfile(ModelBase):
     remark: str = ""
     engine: ProfileEngine = "chrome"
     proxy: ProxySettings = Field(default_factory=ProxySettings)
+    proxy_bypass_rules: list[ProxyBypassRule] = Field(default_factory=list)
     storage: StorageSettings = Field(default_factory=StorageSettings)
     chrome: ChromeSettings = Field(default_factory=ChromeSettings)
     firefox: FirefoxSettings = Field(default_factory=FirefoxSettings)
     created_at: str = Field(default_factory=utc_now_iso)
     updated_at: str = Field(default_factory=utc_now_iso)
     last_used: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_proxy_bypass_rules(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        current_rules = payload.get("proxy_bypass_rules")
+        legacy_domains = payload.get("proxy_bypass_domains")
+        if current_rules:
+            return payload
+        if not legacy_domains:
+            return payload
+        payload["proxy_bypass_rules"] = [
+            {"domain": item, "match_mode": "subdomains"}
+            for item in legacy_domains
+            if str(item or "").strip()
+        ]
+        return payload
 
 
 class EngineSettings(ModelBase):

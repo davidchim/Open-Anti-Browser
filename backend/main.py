@@ -18,10 +18,10 @@ from .ui_bridge import request_exit_ui, request_pick_directory
 
 
 manager = BrowserManager()
-app = FastAPI(title="Open-Anti-Browser API", version="0.1.2")
+app = FastAPI(title="Open-Anti-Browser API", version="0.1.3")
 open_api = FastAPI(
     title="Open-Anti-Browser Open API",
-    version="0.1.2",
+    version="0.1.3",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -148,6 +148,88 @@ def stop_group(group_name: str) -> list[dict]:
 def test_proxy(payload: dict) -> dict:
     try:
         return manager.test_proxy(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/synchronizer/status")
+def get_synchronizer_status() -> dict:
+    return manager.get_synchronizer_status()
+
+
+@app.post("/api/synchronizer/start")
+def start_synchronizer(payload: dict) -> dict:
+    try:
+        return manager.start_synchronizer(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/stop")
+def stop_synchronizer() -> dict:
+    return manager.stop_synchronizer()
+
+
+@app.post("/api/synchronizer/navigate")
+def navigate_synchronizer(payload: dict) -> dict:
+    try:
+        return manager.navigate_synchronizer(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/sync-master-url")
+def sync_master_url_to_followers() -> dict:
+    try:
+        return manager.sync_master_url_to_followers()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/synchronizer/monitors")
+def list_sync_monitors() -> list[dict]:
+    try:
+        return manager.list_sync_monitors()
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/show-windows")
+def show_sync_windows(payload: dict) -> dict:
+    try:
+        return manager.show_sync_windows(payload.get("profile_ids") or [])
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/uniform-size")
+def uniform_sync_windows(payload: dict) -> dict:
+    try:
+        return manager.uniform_sync_windows(payload.get("profile_ids") or [])
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/arrange-windows")
+def arrange_sync_windows(payload: dict) -> dict:
+    try:
+        return manager.arrange_sync_windows(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/text-action")
+def run_sync_text_action(payload: dict) -> dict:
+    try:
+        return manager.run_sync_text_action(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/synchronizer/tab-action")
+def run_sync_tab_action(payload: dict) -> dict:
+    try:
+        return manager.run_sync_tab_action(payload)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

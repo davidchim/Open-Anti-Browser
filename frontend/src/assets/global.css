@@ -380,6 +380,52 @@ html.desktop-shell .el-button:active {
   transform: none;
 }
 
+html.desktop-shell .sync-page .metric-card,
+html.desktop-shell .sync-page .sync-table-wrap,
+html.desktop-shell .sync-page .status-card-line,
+html.desktop-shell .sync-page .console-card,
+html.desktop-shell .sync-page .delay-card,
+html.desktop-shell .sync-page .text-group-card,
+html.desktop-shell .sync-page .toggle-item,
+html.desktop-shell .sync-page .pill,
+html.desktop-shell .sync-page .group-filter .el-select__wrapper,
+html.desktop-shell .sync-page .sync-table,
+html.desktop-shell .sync-settings-popper {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+html.desktop-shell .sync-page .metric-card,
+html.desktop-shell .sync-page .status-card-line,
+html.desktop-shell .sync-page .console-card,
+html.desktop-shell .sync-page .delay-card,
+html.desktop-shell .sync-page .text-group-card,
+html.desktop-shell .sync-page .toggle-item,
+html.desktop-shell .sync-page .sync-table-wrap {
+  background: var(--oab-panel-solid-bg) !important;
+  border-color: var(--oab-border) !important;
+}
+
+html.desktop-shell .sync-page *,
+html.desktop-shell .sync-page *::before,
+html.desktop-shell .sync-page *::after {
+  animation-duration: 0s !important;
+}
+
+html.desktop-shell .sync-page .metric-card:hover,
+html.desktop-shell .sync-page .status-card-line:hover,
+html.desktop-shell .sync-page .console-card:hover,
+html.desktop-shell .sync-page .delay-card:hover,
+html.desktop-shell .sync-page .text-group-card:hover,
+html.desktop-shell .sync-page .toggle-item:hover,
+html.desktop-shell .sync-page .summary-item:hover,
+html.desktop-shell .sync-page .saved-proxy-card:hover,
+html.desktop-shell .sync-page .extension-card:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
 .app-header {
   background: var(--oab-header-bg);
   backdrop-filter: blur(var(--oab-blur-heavy)) saturate(190%);
@@ -791,6 +837,57 @@ html.dark .page-panel.soft {
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 10px;
+}
+
+/* ─── Bypass / Direct Domains ─────────────────────── */
+
+.bypass-section {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--oab-border);
+}
+
+.bypass-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.bypass-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.bypass-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.bypass-mode-label {
+  min-width: 60px;
+  color: var(--oab-muted);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.bypass-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.bypass-input-row .el-textarea {
+  flex: 1;
+}
+
+.bypass-input-row > .el-button {
+  flex-shrink: 0;
+  height: 72px;
 }
 
 /* ─── Settings Grid ────────────────────────────────── */

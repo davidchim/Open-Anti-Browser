@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import datetime
 import hashlib
+import ipaddress
 import select
 import shutil
 import socket
@@ -156,6 +157,90 @@ def proxy_to_profile_proxy(proxy: dict[str, Any]) -> dict[str, Any] | None:
             "password": proxy.get("password") or None,
         }
     )
+
+
+def normalize_bypass_rules(values: Any) -> list[dict[str, str]]:
+    result: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw_value in values or []:
+        if isinstance(raw_value, dict):
+            domain = _normalize_bypass_domain(raw_value.get("domain"))
+            match_mode = str(raw_value.get("match_mode") or "subdomains").strip().lower()
+        elif hasattr(raw_value, "domain"):
+            domain = _normalize_bypass_domain(getattr(raw_value, "domain", ""))
+            match_mode = str(getattr(raw_value, "match_mode", "subdomains") or "subdomains").strip().lower()
+        else:
+            domain = _normalize_bypass_domain(raw_value)
+            match_mode = "subdomains"
+        if match_mode not in {"exact", "subdomains"}:
+            match_mode = "subdomains"
+        signature = (domain, match_mode)
+        if not domain or signature in seen:
+            continue
+        seen.add(signature)
+        result.append({
+            "domain": domain,
+            "match_mode": match_mode,
+        })
+    return result
+
+
+def build_chrome_proxy_bypass_list(values: Any) -> str:
+    items: list[str] = []
+    seen: set[str] = set()
+    for rule in normalize_bypass_rules(values):
+        for candidate in _expand_bypass_patterns(rule["domain"], wildcard_prefix="*.", match_mode=rule["match_mode"]):
+            if candidate not in seen:
+                seen.add(candidate)
+                items.append(candidate)
+    return ";".join(items)
+
+
+def build_firefox_no_proxy_list(values: Any) -> str:
+    items: list[str] = []
+    seen: set[str] = set()
+    for rule in normalize_bypass_rules(values):
+        for candidate in _expand_bypass_patterns(rule["domain"], wildcard_prefix=".", match_mode=rule["match_mode"]):
+            if candidate not in seen:
+                seen.add(candidate)
+                items.append(candidate)
+    return ",".join(items)
+
+
+def _normalize_bypass_domain(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    raw = raw.removeprefix("*.").removeprefix(".")
+    probe = raw
+    if "://" not in probe and any(token in probe for token in ("/", ":")):
+        probe = f"http://{probe}"
+    if "://" in probe:
+        parsed = urlparse(probe)
+        host = parsed.hostname or ""
+    else:
+        host = probe.split("/", 1)[0]
+        if host.count(":") == 1 and not host.startswith("["):
+            host = host.rsplit(":", 1)[0]
+    return host.strip().strip(".").lower()
+
+
+def _expand_bypass_patterns(domain: str, wildcard_prefix: str, match_mode: str = "subdomains") -> list[str]:
+    if not domain:
+        return []
+    if _is_ip_literal(domain) or domain == "localhost":
+        return [domain]
+    if match_mode == "exact":
+        return [domain]
+    return [domain, f"{wildcard_prefix}{domain}"]
+
+
+def _is_ip_literal(value: str) -> bool:
+    try:
+        ipaddress.ip_address(value)
+        return True
+    except ValueError:
+        return False
 
 
 def find_free_port() -> int:

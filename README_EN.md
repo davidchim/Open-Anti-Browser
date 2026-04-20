@@ -20,6 +20,51 @@ The interface follows an iOS-inspired style and supports light and dark mode swi
   <img src="./frontend/public/banner2.png" alt="Open-Anti-Browser banner 2" width="100%">
 </p>
 
+## Feature overview
+
+### Profiles and fingerprints
+
+- Chrome and Firefox fingerprint browser engines
+- Isolated user-data directory for every browser profile
+- Profile name, group, notes, proxy, launch arguments, and startup URLs
+- Chrome supports stable `fingerprint id`, platform selection, language and timezone overrides, CPU thread mode, and launch window size
+- Firefox supports language and timezone, font system, screen size, WebGL, WebRTC, CPU threads, extra fingerprint fields, and custom fingerprint file path
+- Automatic language and timezone resolution from IP, written into the selected browser profile
+
+### Proxies and extensions
+
+- Saved proxies, connectivity test, and bulk proxy assignment
+- Global extension manager for Chrome and Firefox
+- Upload extension packages or select an existing extension folder
+- Enabled global extensions load automatically for profiles using the same engine
+- A single browser profile can disable selected global extensions when needed
+
+### Tab tools
+
+- Open multiple URLs in batch
+- Open the first URL in the current tab, or open every URL as a new tab
+- Unify follower windows to the master window URL
+- Close the current tab in batch
+- Close other tabs in batch
+- Close blank tabs and new-tab pages in batch
+
+### Synchronizer
+
+- Select one master window and multiple follower windows
+- Sync page navigation, clicks, text input, scrolling, keyboard actions, and mouse movement
+- Sync browser UI actions, including address-bar navigation, new tabs, active tab switching, and tab closing
+- Sync the master window URL to all followers when synchronization starts
+- Show windows, set uniform size, and arrange windows automatically
+- Text tools for clearing input, same text input, random number input, and designated text groups
+- Sync delay settings, hotkey settings, and per-action sync switches
+
+### API and desktop experience
+
+- Local API Key, backend API mode, and built-in API documentation
+- Browser launch responses include the local debug port for automation clients
+- Batch start and stop by profile group
+- Single-instance desktop app, tray minimize, and light or dark theme switching
+
 ## Download
 
 - Installer release page: [Releases](https://github.com/Wtcity22/Open-Anti-Browser/releases)
@@ -54,16 +99,6 @@ You are welcome to join the QQ group to share usage tips, report issues, and exc
 
 - Recommended for Chrome: [Patchright](https://github.com/Kaliiiiiiiiii-Vinyzu/patchright)
 - Recommended for Firefox: [RuyiPage](https://github.com/LoseNine/ruyipage)
-
-## Features
-
-- Chrome and Firefox fingerprint engines
-- Dedicated user-data directory per profile
-- Saved proxies, connection test, and bulk proxy assignment
-- Global extension manager with per-profile extension overrides
-- Local API Key, backend API mode, and readable API documentation
-- Group based batch start and stop
-- Single-instance desktop app with tray minimize support
 
 ## Fingerprint support
 

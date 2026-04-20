@@ -104,8 +104,30 @@
             <el-form-item :label="t('proxy.type')">
               <el-segmented v-model="form.proxy.type" :options="proxyTypeOptions" />
             </el-form-item>
+          </el-form>
 
-            <template v-if="form.proxy.type !== 'none'">
+          <div v-if="form.proxy.type !== 'none'" class="proxy-tools-stack">
+            <div class="proxy-tool-card">
+              <div class="form-section-title proxy-tool-title">{{ t('proxy.quickPaste') }}</div>
+              <el-input v-model="quickProxyInput" :placeholder="t('proxy.quickPastePlaceholder')" @keyup.enter="parseQuickProxy">
+                <template #append>
+                  <el-button @click="parseQuickProxy">{{ t('common.parse') }}</el-button>
+                </template>
+              </el-input>
+              <div class="form-tip">{{ t('proxy.quickPasteTip') }}</div>
+              <div class="action-row" style="margin-bottom: 0;">
+                <el-button type="primary" plain :loading="proxyChecking" @click="checkProxy">
+                  {{ t('proxy.testConnection') }}
+                </el-button>
+                <el-tag v-if="proxyCheckResult" :type="proxyCheckResult.ok ? 'success' : 'danger'">
+                  {{ proxyCheckResult.message }}
+                </el-tag>
+              </div>
+            </div>
+          </div>
+
+          <el-form v-if="form.proxy.type !== 'none'" label-position="top">
+            <div class="proxy-connection-fields">
               <el-row :gutter="12">
                 <el-col :span="16">
                   <el-form-item :label="t('proxy.host')">
@@ -130,23 +152,52 @@
                   </el-form-item>
                 </el-col>
               </el-row>
-              <el-form-item :label="t('proxy.quickPaste')">
-                <el-input v-model="quickProxyInput" :placeholder="t('proxy.quickPastePlaceholder')" @keyup.enter="parseQuickProxy">
-                  <template #append>
-                    <el-button @click="parseQuickProxy">{{ t('common.parse') }}</el-button>
-                  </template>
-                </el-input>
-                <div class="form-tip">{{ t('proxy.quickPasteTip') }}</div>
-              </el-form-item>
-              <div class="action-row">
-                <el-button type="primary" plain :loading="proxyChecking" @click="checkProxy">
-                  {{ t('proxy.testConnection') }}
-                </el-button>
-                <el-tag v-if="proxyCheckResult" :type="proxyCheckResult.ok ? 'success' : 'danger'">
-                  {{ proxyCheckResult.message }}
-                </el-tag>
+
+              <div class="bypass-section">
+                <div class="bypass-section-header">
+                  <span class="form-section-title" style="margin: 0;">{{ t('proxy.bypassDomains') }}</span>
+                  <div class="bypass-header-actions">
+                    <el-button text size="small" @click="triggerBypassImport">{{ t('common.import') }}</el-button>
+                    <el-button text size="small" :disabled="!form.proxy_bypass_rules.length" @click="exportBypassRules">{{ t('common.export') }}</el-button>
+                    <el-button text size="small" type="danger" :disabled="!form.proxy_bypass_rules.length" @click="clearBypassRules">{{ t('common.clear') }}</el-button>
+                  </div>
+                </div>
+
+                <div class="bypass-mode-row">
+                  <span class="bypass-mode-label">{{ t('proxy.bypassMatchMode') }}</span>
+                  <el-segmented class="bypass-mode-segmented" v-model="bypassMatchMode" :options="bypassModeOptions" />
+                </div>
+
+                <div class="tag-list" v-if="form.proxy_bypass_rules.length">
+                  <el-tag
+                    v-for="(item, index) in form.proxy_bypass_rules"
+                    :key="`${item.domain}-${item.match_mode}-${index}`"
+                    closable
+                    @close="removeBypassDomain(index)"
+                  >
+                    {{ formatBypassRuleLabel(item) }}
+                  </el-tag>
+                </div>
+
+                <div class="bypass-input-row">
+                  <el-input
+                    v-model="bypassDomainsText"
+                    type="textarea"
+                    :rows="3"
+                    :placeholder="t('proxy.bypassDomainsPlaceholder')"
+                  />
+                  <el-button type="primary" plain @click="addBypassDomains">{{ t('common.add') }}</el-button>
+                </div>
+                <div class="form-tip">{{ t('proxy.bypassDomainsTip') }}</div>
+                <input
+                  ref="bypassImportRef"
+                  class="hidden-file-input"
+                  type="file"
+                  accept=".txt,.json"
+                  @change="handleBypassImport"
+                >
               </div>
-            </template>
+            </div>
           </el-form>
         </div>
       </el-tab-pane>
@@ -472,7 +523,9 @@ const selectedSavedProxyId = ref('')
 const quickProxyInput = ref('')
 const newArg = ref('')
 const newUrl = ref('')
-const newExtension = ref('')
+const bypassDomainsText = ref('')
+const bypassMatchMode = ref('subdomains')
+const bypassImportRef = ref(null)
 const form = ref(createDefaultProfile())
 let applyingSavedProxy = false
 
@@ -481,22 +534,34 @@ const engineOptions = [
   { label: 'Firefox', value: 'firefox' },
 ]
 
-const proxyTypeOptions = [
+const proxyTypeOptions = computed(() => [
   { label: t('proxy.noProxy'), value: 'none' },
   { label: 'HTTP', value: 'http' },
   { label: 'HTTPS', value: 'https' },
   { label: 'SOCKS5', value: 'socks5' },
-]
+])
+
+const bypassModeOptions = computed(() => [
+  { label: t('proxy.bypassExact'), value: 'exact' },
+  { label: t('proxy.bypassSubdomains'), value: 'subdomains' },
+])
 
 watch(
   () => props.profile,
   value => {
-    form.value = value
+    const nextForm = value
       ? JSON.parse(JSON.stringify(value))
       : createDefaultProfile(store.settings)
+    nextForm.proxy_bypass_rules = normalizeBypassRulesForForm(
+      nextForm.proxy_bypass_rules || nextForm.proxy_bypass_domains || [],
+    )
+    delete nextForm.proxy_bypass_domains
+    form.value = nextForm
     activeTab.value = 'basic'
     selectedSavedProxyId.value = ''
     quickProxyInput.value = ''
+    bypassDomainsText.value = ''
+    bypassMatchMode.value = 'subdomains'
     proxyCheckResult.value = null
   },
   { immediate: true, deep: true },
@@ -638,6 +703,185 @@ function removeUrl(index) {
   engineConfig.value.startup.open_urls.splice(index, 1)
 }
 
+function normalizeBypassRulesForForm(values) {
+  let result = []
+  ;(Array.isArray(values) ? values : []).forEach(item => {
+    const rule = normalizeBypassRule(item)
+    if (rule) result = upsertBypassRuleToList(result, rule)
+  })
+  return result
+}
+
+function parseBypassLines(text, fallbackMode = bypassMatchMode.value) {
+  return String(text || '')
+    .split(/\r?\n/)
+    .flatMap(line => line.split(/[,;\uFF0C\uFF1B]/))
+    .map(line => normalizeBypassRule(line, fallbackMode))
+    .filter(Boolean)
+}
+
+function normalizeBypassRule(rawValue, fallbackMode = bypassMatchMode.value) {
+  if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+    const domain = normalizeBypassDomain(rawValue.domain || rawValue.host || rawValue.value)
+    const matchMode = normalizeBypassMatchMode(rawValue.match_mode || rawValue.matchMode || fallbackMode)
+    return domain ? { domain, match_mode: matchMode } : null
+  }
+
+  let raw = String(rawValue || '').trim()
+  if (!raw || raw.startsWith('#') || raw.startsWith('//')) return null
+
+  let matchMode = normalizeBypassMatchMode(fallbackMode)
+  const prefix = raw.match(/^(exact|only|main|root|subdomains|subdomain|include-subdomains)\s*[:=]\s*(.+)$/i)
+  if (prefix) {
+    matchMode = ['exact', 'only', 'main', 'root'].includes(prefix[1].toLowerCase()) ? 'exact' : 'subdomains'
+    raw = prefix[2].trim()
+  } else if (raw.startsWith('=')) {
+    matchMode = 'exact'
+    raw = raw.slice(1).trim()
+  } else if (raw.startsWith('*.') || raw.startsWith('.')) {
+    matchMode = 'subdomains'
+  }
+
+  const domain = normalizeBypassDomain(raw)
+  return domain ? { domain, match_mode: matchMode } : null
+}
+
+function normalizeBypassMatchMode(value) {
+  return String(value || '').toLowerCase() === 'exact' ? 'exact' : 'subdomains'
+}
+
+function normalizeBypassDomain(rawValue) {
+  const raw = String(rawValue || '').trim()
+  if (!raw) return ''
+  let value = raw.replace(/^\*\./, '').replace(/^\./, '').replace(/^=/, '')
+  try {
+    if (!value.includes('://') && /[/:]/.test(value)) {
+      value = `http://${value}`
+    }
+    if (value.includes('://')) {
+      const url = new URL(value)
+      return (url.hostname || '').replace(/^\*\./, '').replace(/^\./, '').toLowerCase()
+    }
+  } catch {
+    // ignore and continue with plain text parsing
+  }
+  value = value.split('/', 1)[0]
+  if (value.includes(':') && !value.includes(']')) {
+    value = value.split(':', 1)[0]
+  }
+  return value.replace(/^\*\./, '').replace(/^\./, '').replace(/\.$/, '').toLowerCase()
+}
+
+function addBypassDomains() {
+  const rules = parseBypassLines(bypassDomainsText.value)
+  if (!rules.length) {
+    ElMessage.warning(t('proxy.bypassEmpty'))
+    return
+  }
+  rules.forEach(rule => upsertBypassRule(rule))
+  bypassDomainsText.value = ''
+  ElMessage.success(t('proxy.bypassAdded', { n: rules.length }))
+}
+
+function upsertBypassRule(rule) {
+  form.value.proxy_bypass_rules = upsertBypassRuleToList(form.value.proxy_bypass_rules || [], rule)
+}
+
+function upsertBypassRuleToList(list, rule) {
+  const normalizedRule = normalizeBypassRule(rule)
+  if (!normalizedRule) return list
+  const nextList = Array.isArray(list) ? [...list] : []
+  const existingIndex = nextList.findIndex(item => item.domain === normalizedRule.domain)
+  if (existingIndex >= 0) {
+    nextList.splice(existingIndex, 1, normalizedRule)
+  } else {
+    nextList.push(normalizedRule)
+  }
+  return nextList
+}
+
+function removeBypassDomain(index) {
+  form.value.proxy_bypass_rules.splice(index, 1)
+}
+
+function clearBypassRules() {
+  form.value.proxy_bypass_rules = []
+}
+
+function formatBypassRuleLabel(rule) {
+  const modeKey = rule?.match_mode === 'exact' ? 'proxy.bypassExact' : 'proxy.bypassSubdomains'
+  return `${rule?.domain || ''} \u00B7 ${t(modeKey)}`
+}
+
+function triggerBypassImport() {
+  bypassImportRef.value?.click?.()
+}
+
+async function handleBypassImport(event) {
+  const input = event?.target
+  const file = input?.files?.[0]
+  if (!file) return
+  try {
+    const text = await file.text()
+    const rules = parseBypassImportText(text)
+    if (!rules.length) {
+      ElMessage.warning(t('proxy.bypassEmpty'))
+      return
+    }
+    rules.forEach(rule => upsertBypassRule(rule))
+    ElMessage.success(t('proxy.bypassImported', { n: rules.length }))
+  } catch (error) {
+    ElMessage.error(error.message || t('proxy.bypassImportFailed'))
+  } finally {
+    if (input) input.value = ''
+  }
+}
+
+function parseBypassImportText(text) {
+  const content = String(text || '').trim()
+  if (!content) return []
+  try {
+    const payload = JSON.parse(content)
+    if (Array.isArray(payload)) {
+      return normalizeBypassRulesForForm(payload)
+    }
+    if (payload && typeof payload === 'object' && payload.domain) {
+      return normalizeBypassRulesForForm([payload])
+    }
+    if (payload && Array.isArray(payload.rules)) {
+      return normalizeBypassRulesForForm(payload.rules)
+    }
+  } catch {
+    // treat as plain text list
+  }
+  return parseBypassLines(content)
+}
+
+function exportBypassRules() {
+  const rules = normalizeBypassRulesForForm(form.value.proxy_bypass_rules || [])
+  if (!rules.length) {
+    ElMessage.warning(t('proxy.bypassEmpty'))
+    return
+  }
+  const content = rules.map(rule => `${rule.match_mode}:${rule.domain}`).join('\n') + '\n'
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = buildBypassExportFileName()
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+  ElMessage.success(t('proxy.bypassExported'))
+}
+
+function buildBypassExportFileName() {
+  const rawName = form.value.name || form.value.id || 'profile'
+  const safeName = String(rawName).replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'profile'
+  return `${safeName}-direct-domains.txt`
+}
+
 function isGlobalExtensionDisabled(extensionId) {
   return engineConfig.value.disabled_global_extension_ids?.includes(extensionId) || false
 }
@@ -673,6 +917,8 @@ async function handleSave() {
   try {
     const payload = JSON.parse(JSON.stringify(form.value))
     if (payload.proxy.port) payload.proxy.port = Number(payload.proxy.port)
+    payload.proxy_bypass_rules = normalizeBypassRulesForForm(payload.proxy_bypass_rules || [])
+    delete payload.proxy_bypass_domains
     await store.saveProfile(payload)
     ElMessage.success(props.mode === 'create' ? t('dialog.savedCreated') : t('dialog.savedUpdated'))
     emit('saved')
@@ -689,5 +935,59 @@ async function handleSave() {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.proxy-tools-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.proxy-tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--oab-border, rgba(15, 23, 42, 0.08));
+  border-radius: 18px;
+  background: var(--oab-card-soft, rgba(255, 255, 255, 0.7));
+}
+
+.proxy-tool-title {
+  margin: 0;
+}
+
+.proxy-connection-fields {
+  padding-top: 4px;
+}
+
+.bypass-mode-label {
+  min-width: 92px;
+  color: var(--app-text-secondary, rgba(15, 23, 42, 0.62));
+  font-size: 13px;
+}
+
+.bypass-mode-segmented {
+  flex: 1;
+  min-width: 320px;
+  max-width: 420px;
+}
+
+.bypass-mode-segmented :deep(.el-segmented__group) {
+  width: 100%;
+}
+
+.bypass-mode-segmented :deep(.el-segmented__item) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.bypass-mode-segmented :deep(.el-segmented__item-label) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
 }
 </style>

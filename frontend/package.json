@@ -1,11 +1,13 @@
 {
   "name": "open-anti-browser-manager",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "cd .. && python -m backend._g --mode build",
     "build": "vite build",
+    "postbuild": "cd .. && python -m backend._g --mode runtime",
     "preview": "vite preview"
   },
   "dependencies": {

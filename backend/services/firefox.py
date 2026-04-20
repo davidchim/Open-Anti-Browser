@@ -15,6 +15,7 @@ from ..models import AppSettings, BrowserProfile, ExtraFingerprintField
 from ..config import DEFAULT_FIREFOX_WEBRTC_BLOCK_EXTENSION, bundled_engine_executable
 from .network import (
     LocalHttpProxyBridge,
+    build_firefox_no_proxy_list,
     find_free_port,
     kill_process_tree,
     proxy_to_profile_proxy,
@@ -208,6 +209,7 @@ def launch_firefox_profile(
         width,
         height,
         bool(installed_extensions),
+        no_proxy_list=build_firefox_no_proxy_list(profile.proxy_bypass_rules),
     )
     remote_debugging_port = find_free_port()
 
@@ -375,6 +377,7 @@ def _write_firefox_user_js(
     width: int,
     height: int,
     has_extensions: bool = False,
+    no_proxy_list: str = "",
 ) -> None:
     prefs = {
         "browser.shell.checkDefaultBrowser": False,
@@ -392,6 +395,8 @@ def _write_firefox_user_js(
         prefs["network.proxy.socks"] = host
         prefs["network.proxy.socks_port"] = int(port)
         prefs["network.proxy.socks_remote_dns"] = True
+        if no_proxy_list:
+            prefs["network.proxy.no_proxies_on"] = no_proxy_list
     else:
         prefs["network.proxy.type"] = 0
 
