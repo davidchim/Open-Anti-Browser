@@ -222,13 +222,13 @@ const copy = computed(() => {
       apiKey: 'API Key',
       authHeader: 'Required request header',
       debugPort: 'Launch response',
-      debugPortDesc: 'The start API returns port, debug_port, debug_url and runtime.remote_debugging_port',
+      debugPortDesc: 'The start API returns port, debug_port, debug_url and runtime.remote_debugging_port. Firefox also returns marionette_port, selenium_port and runtime.marionette_port',
       quickStartTitle: 'Quick start',
       quickStartDesc: 'Call the API, launch a browser profile, then connect your automation client to the returned port',
       quickSteps: [
         { index: '1', title: 'Get profiles', desc: 'Use GET /profiles to find the target profile id' },
         { index: '2', title: 'Start profile', desc: 'Use POST /profiles/{profile_id}/start and read the returned port' },
-        { index: '3', title: 'Connect automation', desc: 'Chrome uses Patchright over CDP, Firefox uses RuyiPage with the same port' },
+        { index: '3', title: 'Connect automation', desc: 'Chrome uses Patchright over CDP, Firefox uses RuyiPage with port, or Selenium with selenium_port / marionette_port' },
       ],
       endpointTitle: 'Main endpoints',
       endpointDesc: 'The examples below use the current local address and API Key from this app',
@@ -246,8 +246,8 @@ const copy = computed(() => {
       automationDesc: 'Use the port returned by the start API to control the launched browser instance',
       chromeAutomationTitle: 'Patchright for Chrome',
       chromeAutomationDesc: 'Patchright follows the Playwright style API and connects to the Chromium debugging port returned by the API',
-      firefoxAutomationTitle: 'RuyiPage for Firefox',
-      firefoxAutomationDesc: 'RuyiPage launches or attaches to the Firefox debugging port returned by the API',
+      firefoxAutomationTitle: 'RuyiPage / Selenium for Firefox',
+      firefoxAutomationDesc: 'RuyiPage attaches to the port returned by the API. Selenium connects through GeckoDriver with selenium_port or marionette_port',
       yes: 'Yes',
       no: 'No',
       header: 'Header',
@@ -266,6 +266,8 @@ const copy = computed(() => {
         startDesc: 'Starts the selected browser profile and returns the debugging port for automation',
         stopTitle: 'Stop a browser profile',
         stopDesc: 'Stops the selected browser profile',
+        deleteTitle: 'Delete a browser profile',
+        deleteDesc: 'Deletes the specified browser profile',
         settingsTitle: 'Read global settings',
         settingsDesc: 'Returns global settings, engine paths and saved API settings',
         proxiesTitle: 'List saved proxies',
@@ -283,13 +285,13 @@ const copy = computed(() => {
     apiKey: 'API Key',
     authHeader: '请求必须携带的请求头',
     debugPort: '启动接口返回',
-    debugPortDesc: '启动接口会返回 port、debug_port、debug_url 和 runtime.remote_debugging_port',
+    debugPortDesc: '启动接口会返回 port、debug_port、debug_url 和 runtime.remote_debugging_port，Firefox 还会返回 marionette_port、selenium_port 和 runtime.marionette_port',
     quickStartTitle: '快速流程',
     quickStartDesc: '先查配置，再启动浏览器，最后用返回的端口接入自动化工具',
     quickSteps: [
       { index: '1', title: '读取配置', desc: '调用 GET /profiles 找到要启动的配置 id' },
       { index: '2', title: '启动配置', desc: '调用 POST /profiles/{profile_id}/start，并读取返回里的 port' },
-      { index: '3', title: '接入自动化', desc: 'Chrome 用 Patchright 连接 CDP，Firefox 用 RuyiPage 传入同一个端口' },
+      { index: '3', title: '接入自动化', desc: 'Chrome 用 Patchright 连接 CDP，Firefox 用 RuyiPage 传入 port，Selenium 使用 selenium_port / marionette_port' },
     ],
     endpointTitle: '主要接口',
     endpointDesc: '下面示例会自动使用当前窗口的本地地址和 API Key',
@@ -307,8 +309,8 @@ const copy = computed(() => {
     automationDesc: '启动接口返回的 port 就是后续自动化连接要用的端口',
     chromeAutomationTitle: 'Chrome 使用 Patchright',
     chromeAutomationDesc: 'Patchright 用法和 Playwright 风格一致，使用返回端口连接 Chrome 的 CDP 调试地址',
-    firefoxAutomationTitle: 'Firefox 使用 RuyiPage',
-    firefoxAutomationDesc: 'RuyiPage 使用启动接口返回的端口连接 Firefox 指纹内核',
+    firefoxAutomationTitle: 'Firefox 使用 RuyiPage / Selenium',
+    firefoxAutomationDesc: 'RuyiPage 使用启动接口返回的 port 连接内核，Selenium 通过 GeckoDriver 使用 selenium_port 或 marionette_port 连接',
     yes: '是',
     no: '否',
     header: '请求头',
@@ -327,6 +329,8 @@ const copy = computed(() => {
       startDesc: '启动指定配置，并返回后续自动化要用的调试端口',
       stopTitle: '停止浏览器配置',
       stopDesc: '停止指定配置',
+      deleteTitle: '删除浏览器配置',
+      deleteDesc: '删除指定的浏览器配置',
       settingsTitle: '读取全局设置',
       settingsDesc: '返回全局设置、内核路径和 API 设置',
       proxiesTitle: '获取已保存代理',
@@ -526,8 +530,11 @@ const endpoints = computed(() => [
       port: 9222,
       debug_port: 9222,
       debug_url: 'http://127.0.0.1:9222',
+      marionette_port: 2828,
+      selenium_port: 2828,
       runtime: {
         remote_debugging_port: 9222,
+        marionette_port: 2828,
         resolved_ip: '203.0.113.10',
         resolved_timezone: 'Asia/Tokyo',
         resolved_language: 'ja-JP',
@@ -545,6 +552,18 @@ const endpoints = computed(() => [
     ],
     request: `curl -X POST -H "X-API-Key: ${apiKey.value}" "${baseUrl.value}/profiles/${profileId.value}/stop"`,
     response: JSON.stringify({ id: profileId.value, status: 'stopped', port: null }, null, 2),
+  },
+  {
+    method: 'DELETE',
+    path: '/profiles/{profile_id}',
+    title: copy.value.endpoints.deleteTitle,
+    desc: copy.value.endpoints.deleteDesc,
+    params: [
+      authParam.value,
+      { name: 'profile_id', position: copy.value.path, required: copy.value.yes, desc: locale.value === 'en-US' ? 'The profile id to delete' : '要删除的配置 id' },
+    ],
+    request: `curl -X DELETE -H "X-API-Key: ${apiKey.value}" "${baseUrl.value}/profiles/${profileId.value}"`,
+    response: JSON.stringify({ ok: true }, null, 2),
   },
   {
     method: 'GET',
@@ -740,7 +759,11 @@ page = launch(
     port=port,
 )
 page.goto("https://browserleaks.com/javascript")
-print(page.title)`)
+print(page.title)
+
+# Selenium / Java uses the returned selenium_port.
+# Start geckodriver with:
+# geckodriver --connect-existing --marionette-port <selenium_port>`)
 
 onMounted(async () => {
   if (!store.apiInfo) {

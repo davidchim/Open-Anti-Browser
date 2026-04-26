@@ -12,6 +12,7 @@ from ..models import AppSettings, BrowserProfile
 from .network import (
     LocalHttpProxyBridge,
     build_chrome_proxy_bypass_list,
+    fallback_geo_profile,
     find_free_port,
     proxy_to_profile_proxy,
     resolve_geo_profile,
@@ -33,11 +34,14 @@ def launch_chrome_profile(
 
     proxy_config = proxy_to_profile_proxy(profile.proxy.model_dump(mode="json"))
     chrome_fp = profile.chrome.fingerprint
-    geo_profile = resolve_geo_profile(
-        proxy_config,
-        chrome_fp.auto_timezone,
-        strict=chrome_fp.auto_timezone,
-    )
+    try:
+        geo_profile = resolve_geo_profile(
+            proxy_config,
+            chrome_fp.auto_timezone,
+            strict=False,
+        )
+    except Exception as exc:
+        geo_profile = fallback_geo_profile(exc)
     remote_debugging_port = find_free_port()
     seed = chrome_fp.seed if chrome_fp.seed is not None else _fallback_seed()
     hardware_concurrency = _resolve_hardware_concurrency(

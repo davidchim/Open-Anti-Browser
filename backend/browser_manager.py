@@ -167,6 +167,7 @@ class BrowserManager:
                 executable_path=str(executable_path),
                 command=launch_info["command"],
                 remote_debugging_port=launch_info.get("remote_debugging_port"),
+                marionette_port=launch_info.get("marionette_port"),
                 proxy_bridge_url=launch_info.get("proxy_bridge_url"),
                 resolved_ip=launch_info["geo_profile"].get("ip"),
                 resolved_timezone=launch_info["geo_profile"].get("timezone"),
@@ -590,9 +591,12 @@ class BrowserManager:
         payload["status"] = self._get_profile_status(profile.id, session=session)
         runtime_payload = payload.get("runtime") or {}
         port = runtime_payload.get("remote_debugging_port")
+        marionette_port = runtime_payload.get("marionette_port")
         payload["port"] = port
         payload["debug_port"] = port
         payload["debug_url"] = f"http://127.0.0.1:{port}" if port else None
+        payload["marionette_port"] = marionette_port
+        payload["selenium_port"] = marionette_port
         return payload
 
     def _resolve_user_data_dir(self, profile: BrowserProfile, settings: AppSettings, ensure_exists: bool = True) -> Path:

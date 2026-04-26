@@ -227,6 +227,7 @@ class RuntimeSession(ModelBase):
     executable_path: str
     command: list[str]
     remote_debugging_port: int | None = None
+    marionette_port: int | None = None
     proxy_bridge_url: str | None = None
     resolved_ip: str | None = None
     resolved_timezone: str | None = None

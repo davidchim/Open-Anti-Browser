@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import ctypes
+import json
 import os
 import random
 import shutil
 import subprocess
 import tempfile
 import time
+import zipfile
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -16,6 +18,7 @@ from ..config import DEFAULT_FIREFOX_WEBRTC_BLOCK_EXTENSION, bundled_engine_exec
 from .network import (
     LocalHttpProxyBridge,
     build_firefox_no_proxy_list,
+    fallback_geo_profile,
     find_free_port,
     kill_process_tree,
     proxy_to_profile_proxy,
@@ -138,11 +141,14 @@ def firefox_supports_fpfile(executable_path: str | Path) -> bool:
         newline="\n",
     )
     remote_port = find_free_port()
+    marionette_port = _find_distinct_free_port(remote_port)
     command = [
         str(path),
         f"--remote-debugging-port={remote_port}",
         "--no-remote",
         "--marionette",
+        "--marionette-port",
+        str(marionette_port),
         "--profile",
         str(profile_dir),
         "--width=1200",
@@ -182,11 +188,14 @@ def launch_firefox_profile(
     if not executable_path.exists():
         raise FileNotFoundError(f"Firefox 内核不存在：{executable_path}")
     proxy_config = proxy_to_profile_proxy(profile.proxy.model_dump(mode="json"))
-    geo_profile = resolve_geo_profile(
-        proxy_config,
-        profile.firefox.fingerprint.auto_timezone,
-        strict=profile.firefox.fingerprint.auto_timezone,
-    )
+    try:
+        geo_profile = resolve_geo_profile(
+            proxy_config,
+            profile.firefox.fingerprint.auto_timezone,
+            strict=False,
+        )
+    except Exception as exc:
+        geo_profile = fallback_geo_profile(exc)
     proxy_bridge = None
     browser_proxy = proxy_config["server"] if proxy_config else None
     if proxy_config and proxy_config["username"] is not None:
@@ -203,6 +212,8 @@ def launch_firefox_profile(
         fingerprint_result.get("screen_profile"),
     )
     installed_extensions = _prepare_firefox_extensions(profile, app_settings, user_data_dir)
+    remote_debugging_port = find_free_port()
+    marionette_port = _find_distinct_free_port(remote_debugging_port)
     _write_firefox_user_js(
         user_data_dir / "user.js",
         browser_proxy,
@@ -210,14 +221,17 @@ def launch_firefox_profile(
         height,
         bool(installed_extensions),
         no_proxy_list=build_firefox_no_proxy_list(profile.proxy_bypass_rules),
+        marionette_port=marionette_port,
     )
-    remote_debugging_port = find_free_port()
+    _write_firefox_pref_override(user_data_dir / "prefs.js", "marionette.port", marionette_port)
 
     launch_args: list[str] = [
         str(executable_path),
         f"--remote-debugging-port={remote_debugging_port}",
         "--no-remote",
         "--marionette",
+        "--marionette-port",
+        str(marionette_port),
         "--profile",
         str(user_data_dir),
         f"--width={width}",
@@ -251,6 +265,7 @@ def launch_firefox_profile(
         "proxy_bridge": proxy_bridge,
         "proxy_bridge_url": proxy_bridge.local_proxy if proxy_bridge else None,
         "remote_debugging_port": remote_debugging_port,
+        "marionette_port": marionette_port,
         "geo_profile": geo_profile,
         "fingerprint_file": str(fingerprint_file),
         "fingerprint_profile": fingerprint_result["items"],
@@ -378,6 +393,7 @@ def _write_firefox_user_js(
     height: int,
     has_extensions: bool = False,
     no_proxy_list: str = "",
+    marionette_port: int | None = None,
 ) -> None:
     prefs = {
         "browser.shell.checkDefaultBrowser": False,
@@ -402,6 +418,8 @@ def _write_firefox_user_js(
 
     prefs["privacy.window.maxInnerWidth"] = int(width)
     prefs["privacy.window.maxInnerHeight"] = int(height)
+    if marionette_port:
+        prefs["marionette.port"] = int(marionette_port)
     if has_extensions:
         prefs["extensions.autoDisableScopes"] = 0
         prefs["extensions.enabledScopes"] = 15
@@ -410,6 +428,19 @@ def _write_firefox_user_js(
         prefs["xpinstall.signatures.required"] = False
 
     lines = [f'user_pref("{key}", { _to_js_value(value) });' for key, value in prefs.items()]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_firefox_pref_override(path: Path, key: str, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    replacement = f'user_pref("{key}", { _to_js_value(value) });'
+    lines: list[str] = []
+    if path.exists():
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if f'user_pref("{key}"' in line:
+                continue
+            lines.append(line)
+    lines.append(replacement)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -445,11 +476,69 @@ def _prepare_firefox_extensions(profile: BrowserProfile, app_settings: AppSettin
         if signature in copied_signatures:
             continue
         copied_signatures.add(signature)
-        target_name = source.name if source.suffix.lower() == ".xpi" else f"{source.name}.xpi"
+        target_name = _firefox_extension_install_filename(source)
         target = extensions_dir / target_name
         shutil.copy2(source, target)
         installed_paths.append(target)
     return installed_paths
+
+
+def _find_distinct_free_port(*used_ports: int | None) -> int:
+    used = {int(port) for port in used_ports if port}
+    for _ in range(20):
+        port = find_free_port()
+        if port not in used:
+            return port
+    raise RuntimeError("无法分配 Firefox 自动化端口")
+
+
+def _firefox_extension_install_filename(source: Path) -> str:
+    addon_id = _read_firefox_extension_addon_id(source)
+    safe_name = _safe_firefox_extension_id_filename(addon_id)
+    if safe_name:
+        return safe_name
+    return source.name if source.suffix.lower() == ".xpi" else f"{source.name}.xpi"
+
+
+def _read_firefox_extension_addon_id(source: Path) -> str:
+    manifest = _read_firefox_extension_manifest(source)
+    if not manifest:
+        return ""
+    gecko = manifest.get("browser_specific_settings", {}).get("gecko", {})
+    addon_id = gecko.get("id")
+    if not addon_id:
+        gecko = manifest.get("applications", {}).get("gecko", {})
+        addon_id = gecko.get("id")
+    return str(addon_id or "").strip()
+
+
+def _read_firefox_extension_manifest(source: Path) -> dict[str, Any]:
+    try:
+        if source.is_file() and (source.suffix.lower() in {".xpi", ".zip"} or zipfile.is_zipfile(source)):
+            with zipfile.ZipFile(source) as zip_file:
+                with zip_file.open("manifest.json") as manifest_file:
+                    raw = manifest_file.read().decode("utf-8")
+            manifest = json.loads(raw)
+            return manifest if isinstance(manifest, dict) else {}
+        if source.is_dir():
+            manifest_path = source / "manifest.json"
+            if manifest_path.exists():
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                return manifest if isinstance(manifest, dict) else {}
+    except Exception:
+        return {}
+    return {}
+
+
+def _safe_firefox_extension_id_filename(addon_id: str) -> str:
+    value = str(addon_id or "").strip()
+    if not value:
+        return ""
+    if any(char in value for char in '\\/:*?"<>|'):
+        return ""
+    if Path(value).name != value:
+        return ""
+    return f"{value}.xpi"
 
 
 def _resolve_window_size(window_size: str | None, screen_profile: dict[str, int] | None = None) -> tuple[int, int]:

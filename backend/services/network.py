@@ -50,6 +50,14 @@ class GeoProfileResolveError(RuntimeError):
     pass
 
 
+def fallback_geo_profile(error: Exception | str | None = None) -> dict[str, Any]:
+    geo_profile = dict(DEFAULT_GEO_PROFILE)
+    geo_profile["source"] = "fallback"
+    if error:
+        geo_profile["resolve_error"] = str(error)
+    return geo_profile
+
+
 BROWSERSCAN_HEADERS = {
     "accept": "*/*",
     "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7",
