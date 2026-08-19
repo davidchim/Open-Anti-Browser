@@ -262,18 +262,24 @@ const copy = computed(() => {
         listDesc: 'Returns all saved Chrome and Firefox profiles, including runtime status',
         createTitle: 'Create or update a browser profile',
         createDesc: 'Creates a profile when id is new, or updates the profile when id already exists',
+        createAndStartTitle: 'Create and start a browser profile',
+        createAndStartDesc: 'Creates a profile from a task id and proxy URL, starts it, and returns the local CDP WebSocket URL for Chrome',
         startTitle: 'Start a browser profile',
         startDesc: 'Starts the selected browser profile and returns the debugging port for automation',
         stopTitle: 'Stop a browser profile',
         stopDesc: 'Stops the selected browser profile',
         deleteTitle: 'Delete a browser profile',
         deleteDesc: 'Deletes the specified browser profile',
+        deleteByNameTitle: 'Delete a browser profile by name',
+        deleteByNameDesc: 'Deletes the first profile whose name exactly matches profile_name',
         settingsTitle: 'Read global settings',
         settingsDesc: 'Returns global settings, engine paths and saved API settings',
         proxiesTitle: 'List saved proxies',
         proxiesDesc: 'Returns saved proxies that can be assigned to browser profiles',
         proxyTestTitle: 'Test proxy',
         proxyTestDesc: 'Tests a proxy and returns the resolved IP, language and timezone',
+        proxyCheckTitle: 'Check proxy IP details',
+        proxyCheckDesc: 'Accepts a proxy URL and returns its IP, location, timezone and data-center flag',
       },
     }
   }
@@ -325,18 +331,24 @@ const copy = computed(() => {
       listDesc: '返回所有 Chrome 和 Firefox 配置，并带上当前运行状态',
       createTitle: '创建或更新浏览器配置',
       createDesc: 'id 不存在时创建配置，id 已存在时更新配置',
+      createAndStartTitle: '创建并启动浏览器配置',
+      createAndStartDesc: '使用任务名称和代理地址创建配置并立即启动，Chrome 会返回本地 CDP WebSocket 地址',
       startTitle: '启动浏览器配置',
       startDesc: '启动指定配置，并返回后续自动化要用的调试端口',
       stopTitle: '停止浏览器配置',
       stopDesc: '停止指定配置',
       deleteTitle: '删除浏览器配置',
       deleteDesc: '删除指定的浏览器配置',
+      deleteByNameTitle: '按名称删除浏览器配置',
+      deleteByNameDesc: '删除第一个名称与 profile_name 完全相同的配置',
       settingsTitle: '读取全局设置',
       settingsDesc: '返回全局设置、内核路径和 API 设置',
       proxiesTitle: '获取已保存代理',
       proxiesDesc: '返回代理管理里保存的代理列表',
       proxyTestTitle: '测试代理',
       proxyTestDesc: '测试代理连通性，并返回解析到的 IP、语言和时区',
+      proxyCheckTitle: '检测代理 IP 信息',
+      proxyCheckDesc: '接收代理 URL，返回 IP、地区、时区和是否为数据中心地址',
     },
   }
 })
@@ -497,7 +509,7 @@ const endpoints = computed(() => [
       { name: 'name', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Profile name, auto-numbered when empty' : '配置名称，留空会自动按序号生成' },
       { name: 'group / remark', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Optional group and remark fields' : '可选分组和备注' },
       { name: 'engine', position: copy.value.body, required: copy.value.yes, desc: 'chrome / firefox' },
-      { name: 'proxy', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Proxy object: type, host, port, username, password' : '代理对象，包含 type、host、port、username、password' },
+      { name: 'proxy', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Proxy URL string, or an object with type, host, port, username and password' : '代理 URL 字符串，或包含 type、host、port、username、password 的对象' },
       { name: 'storage.root_dir', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Custom user-data root for this profile' : '当前配置单独使用的用户目录根路径' },
       { name: 'chrome.*', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Chrome fingerprint, startup, args and extension override fields listed below' : 'Chrome 的指纹、启动参数、扩展禁用字段见下方完整字段表' },
       { name: 'firefox.*', position: copy.value.body, required: copy.value.no, desc: locale.value === 'en-US' ? 'Firefox fingerprint, startup, args and extension override fields listed below' : 'Firefox 的指纹、启动参数、扩展禁用字段见下方完整字段表' },
@@ -505,7 +517,7 @@ const endpoints = computed(() => [
     request: `curl -X POST "${baseUrl.value}/profiles" \\
   -H "X-API-Key: ${apiKey.value}" \\
   -H "Content-Type: application/json" \\
-  -d "{\\"name\\":\\"Test Chrome\\",\\"engine\\":\\"chrome\\",\\"proxy\\":{\\"type\\":\\"none\\"}}"`,
+  -d "{\\"name\\":\\"Test Chrome\\",\\"engine\\":\\"chrome\\",\\"proxy\\":\\"http://user:pass@127.0.0.1:7890\\"}"`,
     response: JSON.stringify({
       id: profileId.value,
       name: 'Test Chrome',
@@ -529,7 +541,7 @@ const endpoints = computed(() => [
       status: 'running',
       port: 9222,
       debug_port: 9222,
-      debug_url: 'http://127.0.0.1:9222',
+      debug_url: 'ws://127.0.0.1:8000/ws/cdp/PROFILE_ID',
       marionette_port: 2828,
       selenium_port: 2828,
       runtime: {
@@ -540,6 +552,23 @@ const endpoints = computed(() => [
         resolved_language: 'ja-JP',
       },
     }, null, 2),
+  },
+  {
+    method: 'POST',
+    path: '/profiles/create-and-start',
+    title: copy.value.endpoints.createAndStartTitle,
+    desc: copy.value.endpoints.createAndStartDesc,
+    params: [
+      authParam.value,
+      { name: 'task_id', position: copy.value.body, required: copy.value.yes, desc: locale.value === 'en-US' ? 'Unique profile name for this task' : '这次任务使用的唯一配置名称' },
+      { name: 'proxy', position: copy.value.body, required: copy.value.yes, desc: locale.value === 'en-US' ? 'Proxy URL such as http://user:pass@host:port' : '代理 URL，例如 http://user:pass@host:port' },
+      { name: 'engine', position: copy.value.body, required: copy.value.no, desc: 'chrome / firefox' },
+    ],
+    request: `curl -X POST "${baseUrl.value}/profiles/create-and-start" \\
+  -H "X-API-Key: ${apiKey.value}" \\
+  -H "Content-Type: application/json" \\
+  -d "{\\"task_id\\":\\"task-001\\",\\"proxy\\":\\"http://127.0.0.1:7890\\",\\"engine\\":\\"chrome\\"}"`,
+    response: JSON.stringify({ id: profileId.value, engine: 'chrome', status: 'running', port: 9222, debug_url: `ws://127.0.0.1:8000/ws/cdp/${profileId.value}` }, null, 2),
   },
   {
     method: 'POST',
@@ -563,6 +592,21 @@ const endpoints = computed(() => [
       { name: 'profile_id', position: copy.value.path, required: copy.value.yes, desc: locale.value === 'en-US' ? 'The profile id to delete' : '要删除的配置 id' },
     ],
     request: `curl -X DELETE -H "X-API-Key: ${apiKey.value}" "${baseUrl.value}/profiles/${profileId.value}"`,
+    response: JSON.stringify({ ok: true }, null, 2),
+  },
+  {
+    method: 'DELETE',
+    path: '/profiles',
+    title: copy.value.endpoints.deleteByNameTitle,
+    desc: copy.value.endpoints.deleteByNameDesc,
+    params: [
+      authParam.value,
+      { name: 'profile_name', position: copy.value.body, required: copy.value.yes, desc: locale.value === 'en-US' ? 'Exact profile name to delete' : '要删除的完整配置名称' },
+    ],
+    request: `curl -X DELETE "${baseUrl.value}/profiles" \\
+  -H "X-API-Key: ${apiKey.value}" \\
+  -H "Content-Type: application/json" \\
+  -d "{\\"profile_name\\":\\"task-001\\"}"`,
     response: JSON.stringify({ ok: true }, null, 2),
   },
   {
@@ -633,6 +677,21 @@ const endpoints = computed(() => [
   -H "Content-Type: application/json" \\
   -d "{\\"type\\":\\"http\\",\\"host\\":\\"127.0.0.1\\",\\"port\\":7890}"`,
     response: JSON.stringify({ ok: true, data: { ip: '203.0.113.10', language: 'ja-JP', timezone: 'Asia/Tokyo' } }, null, 2),
+  },
+  {
+    method: 'POST',
+    path: '/proxy/check-ip',
+    title: copy.value.endpoints.proxyCheckTitle,
+    desc: copy.value.endpoints.proxyCheckDesc,
+    params: [
+      authParam.value,
+      { name: 'proxy', position: copy.value.body, required: copy.value.yes, desc: locale.value === 'en-US' ? 'Full proxy URL' : '完整代理 URL' },
+    ],
+    request: `curl -X POST "${baseUrl.value}/proxy/check-ip" \\
+  -H "X-API-Key: ${apiKey.value}" \\
+  -H "Content-Type: application/json" \\
+  -d "{\\"proxy\\":\\"http://127.0.0.1:7890\\"}"`,
+    response: JSON.stringify({ ipAddress: '203.0.113.10', country: 'Japan', countryCode: 'JP', city: 'Tokyo', timezone: 'Asia/Tokyo', isDataCenter: false }, null, 2),
   },
 ])
 

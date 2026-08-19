@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import random
-import urllib.request
 import secrets
 import shutil
+import socket
 import threading
 import time
 from typing import Any
@@ -26,6 +26,7 @@ from .services.extensions import (
 )
 from .services.firefox import launch_firefox_profile
 from .services.network import (
+    create_http_session,
     kill_process_tree,
     proxy_to_profile_proxy,
     resolve_geo_profile,
@@ -39,21 +40,41 @@ from .storage import JsonStorage
 
 def _fetch_ws_debugger_url(port: int, timeout: float = 10.0) -> str | None:
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        try:
-            req = urllib.request.Request(
-                f"http://127.0.0.1:{port}/json/version",
-                headers={"User-Agent": "Open-Anti-Browser"},
-            )
-            with urllib.request.urlopen(req, timeout=2) as resp:
-                data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+    session = create_http_session(timeout=2)
+    try:
+        while time.monotonic() < deadline:
+            try:
+                response = session.get(
+                    f"http://127.0.0.1:{port}/json/version",
+                    headers={"User-Agent": "Open-Anti-Browser"},
+                    timeout=2,
+                )
+                response.raise_for_status()
+                data = response.json()
                 ws_url = data.get("webSocketDebuggerUrl")
                 if ws_url:
                     return ws_url
-        except Exception:
-            pass
-        time.sleep(0.5)
-    return None
+            except Exception:
+                pass
+            time.sleep(0.5)
+        return None
+    finally:
+        session.close()
+
+
+def _wait_for_local_port(port: int, timeout: float = 10.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.25)
+    return False
+
+
+class ProfileNameConflictError(RuntimeError):
+    pass
 
 
 class BrowserManager:
@@ -231,13 +252,27 @@ class BrowserManager:
         proxy = proxy.strip()
         profiles = self.storage.load_profiles()
         if any(p.name == task_id for p in profiles):
-            raise RuntimeError(f"task_id {task_id!r} 已存在")
+            raise ProfileNameConflictError(f"task_id {task_id!r} 已存在")
         saved = self.save_profile({"name": task_id, "engine": engine, "proxy": proxy})
-        result = self.start_profile(saved["id"])
-        port = result.get("port")
-        if port:
-            result["debug_url"] = _fetch_ws_debugger_url(port) or result.get("debug_url")
-        return result
+        try:
+            result = self.start_profile(saved["id"])
+            port = result.get("port")
+            if port and not _wait_for_local_port(int(port)):
+                raise RuntimeError("浏览器调试端口启动超时")
+            if result.get("engine") == "chrome" and port:
+                result["debug_url"] = _fetch_ws_debugger_url(port) or result.get("debug_url")
+            return result
+        except Exception:
+            try:
+                self.delete_profile(saved["id"])
+            except Exception:
+                pass
+            raise
+
+    def wait_for_profile_debug_port(self, profile_id: str, timeout: float = 10.0) -> bool:
+        session = self._resolve_runtime_session(profile_id)
+        port = session.get("remote_debugging_port") if session else None
+        return bool(port and _wait_for_local_port(int(port), timeout))
 
     def stop_profile(self, profile_id: str, quiet: bool = False) -> dict[str, Any] | None:
         self._refresh_runtime_sessions()
@@ -856,7 +891,7 @@ class BrowserManager:
 
     def get_profile_cdp_ws_url(self, profile_id: str) -> str | None:
         session = self._resolve_runtime_session(profile_id)
-        if not session:
+        if not session or session.get("engine") != "chrome":
             return None
         port = session.get("remote_debugging_port")
         if not port:

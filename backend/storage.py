@@ -41,6 +41,12 @@ class JsonStorage:
                 if settings.firefox.executable_path != ENGINE_METADATA["firefox"]["default_executable"]:
                     settings.firefox.executable_path = ENGINE_METADATA["firefox"]["default_executable"]
                     changed = True
+                if settings.chrome.installer_url != ENGINE_METADATA["chrome"]["installer_url"]:
+                    settings.chrome.installer_url = ENGINE_METADATA["chrome"]["installer_url"]
+                    changed = True
+                if settings.firefox.installer_url != ENGINE_METADATA["firefox"]["installer_url"]:
+                    settings.firefox.installer_url = ENGINE_METADATA["firefox"]["installer_url"]
+                    changed = True
                 chrome_download = str(self.downloads_dir / ENGINE_METADATA["chrome"]["download_name"])
                 firefox_download = str(self.downloads_dir / ENGINE_METADATA["firefox"]["download_name"])
                 if settings.chrome.download_path != chrome_download:

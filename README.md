@@ -84,16 +84,16 @@ Open-Anti-Browser 是一个本地桌面端指纹浏览器管理器
 
 ## 内核来源
 
-### Chromium 144
+### Chromium 148
 
 - 项目: [adryfish/fingerprint-chromium](https://github.com/adryfish/fingerprint-chromium)
-- 本项目内置版本: Chromium 144
+- 本项目内置版本: Chromium 148.0.7778.215
 
-### Firefox 151
+### Firefox 155
 
 - 项目: [LoseNine/firefox-fingerprintBrowser](https://github.com/LoseNine/firefox-fingerprintBrowser)
 - 自动化库: [LoseNine/ruyipage](https://github.com/LoseNine/ruyipage)
-- 本项目内置版本: Firefox 151
+- 本项目内置版本: Firefox 155.0a1
 
 ### 自动化接入
 

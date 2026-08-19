@@ -13,17 +13,17 @@ from fastapi.responses import FileResponse
 from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 
-from .browser_manager import BrowserManager
+from .browser_manager import BrowserManager, ProfileNameConflictError
 from .config import FRONTEND_DIST_DIR
 from .runtime_control import get_backend_only_status, start_backend_only, stop_backend_only
 from .ui_bridge import request_exit_ui, request_pick_directory
 
 
 manager = BrowserManager()
-app = FastAPI(title="Open-Anti-Browser API", version="0.1.5")
+app = FastAPI(title="Open-Anti-Browser API", version="0.1.6")
 open_api = FastAPI(
     title="Open-Anti-Browser Open API",
-    version="0.1.5",
+    version="0.1.6",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -149,6 +149,12 @@ def stop_group(group_name: str) -> list[dict]:
 def _cdp_proxy_url(request: Request, profile_id: str) -> str:
     scheme = "wss" if request.url.scheme == "https" else "ws"
     return f"{scheme}://{request.url.netloc}/ws/cdp/{profile_id}"
+
+
+def _attach_cdp_proxy_url(request: Request, result: dict) -> dict:
+    if result.get("engine") == "chrome" and result.get("id"):
+        result["debug_url"] = _cdp_proxy_url(request, result["id"])
+    return result
 
 
 @app.websocket("/ws/cdp/{profile_id}")
@@ -538,13 +544,14 @@ def open_api_delete_profile_by_name(payload: dict) -> dict[str, bool]:
 def open_api_start_profile(request: Request, profile_id: str) -> dict:
     try:
         result = manager.start_profile(profile_id)
+        if result.get("port") and not manager.wait_for_profile_debug_port(profile_id):
+            manager.stop_profile(profile_id, quiet=True)
+            raise RuntimeError("浏览器调试端口启动超时")
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if result.get("id"):
-        result["debug_url"] = _cdp_proxy_url(request, result["id"])
-    return result
+    return _attach_cdp_proxy_url(request, result)
 
 
 @open_api.post("/profiles/{profile_id}/stop", dependencies=[Depends(verify_open_api_key)], summary="停止浏览器配置")
@@ -570,13 +577,11 @@ def open_api_create_and_start_profile(request: Request, payload: dict) -> dict:
         raise HTTPException(status_code=400, detail="proxy 不能为空")
     try:
         result = manager.create_and_start_profile(task_id, proxy, engine)
-    except RuntimeError as exc:
+    except ProfileNameConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    if result.get("id"):
-        result["debug_url"] = _cdp_proxy_url(request, result["id"])
-    return result
+    return _attach_cdp_proxy_url(request, result)
 
 
 @open_api.get("/settings", dependencies=[Depends(verify_open_api_key)], summary="读取全局设置")
@@ -667,7 +672,10 @@ if FRONTEND_DIST_DIR.exists():
         target = FRONTEND_DIST_DIR / full_path
         if full_path and target.exists() and target.is_file():
             return FileResponse(target)
-        return FileResponse(FRONTEND_DIST_DIR / "index.html")
+        return FileResponse(
+            FRONTEND_DIST_DIR / "index.html",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
 else:
     @app.get("/{full_path:path}")
     def frontend_missing(full_path: str):

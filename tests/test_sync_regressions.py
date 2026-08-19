@@ -1,6 +1,7 @@
 ﻿import os
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from backend.services import synchronizer
@@ -383,10 +384,37 @@ class SynchronizerRegressionTests(unittest.TestCase):
         self.assertEqual(client.switched, ["tab-b"])
 
     def test_safe_rendering_is_default_for_packaged_desktop(self):
-        with patch.dict(os.environ, {}, clear=True):
-            flags = launch_app._desktop_chromium_flags()
-            self.assertNotIn("--disable-gpu", flags)
-            self.assertEqual(launch_app._desktop_qt_opengl_backend(), "angle")
+        with TemporaryDirectory() as temp_dir:
+            marker = Path(temp_dir) / "software.flag"
+            with patch.object(launch_app, "DESKTOP_SOFTWARE_RENDERING_MARKER", marker):
+                with patch.dict(os.environ, {}, clear=True):
+                    flags = launch_app._desktop_chromium_flags()
+                    self.assertNotIn("--disable-gpu", flags)
+                    self.assertEqual(launch_app._desktop_qt_opengl_backend(), "angle")
+
+    def test_desktop_uses_software_rendering_after_compatibility_fallback(self):
+        with TemporaryDirectory() as temp_dir:
+            marker = Path(temp_dir) / "software.flag"
+            marker.write_text("window-capture-blank", encoding="utf-8")
+            with patch.object(launch_app, "DESKTOP_SOFTWARE_RENDERING_MARKER", marker):
+                with patch.dict(os.environ, {}, clear=True):
+                    self.assertEqual(launch_app._desktop_qt_opengl_backend(), "software")
+                    self.assertIn("--disable-gpu", launch_app._desktop_chromium_flags())
+
+    def test_desktop_render_probe_distinguishes_blank_and_real_ui(self):
+        self.assertTrue(launch_app._sampled_colors_look_blank([(255, 255, 255)] * 100))
+        self.assertFalse(
+            launch_app._sampled_colors_look_blank(
+                [(255, 255, 255)] * 90 + [(30, 48, 65)] * 10
+            )
+        )
+
+    def test_desktop_shell_url_is_versioned_to_avoid_stale_upgrade_cache(self):
+        with patch.object(launch_app, "_frontend_build_token", return_value="abc123"):
+            self.assertEqual(
+                launch_app.desktop_shell_url(8007),
+                "http://127.0.0.1:8007/?shell=desktop&build=abc123",
+            )
 
     def test_desktop_shell_has_sync_page_lightweight_overrides(self):
         css_path = Path(__file__).resolve().parents[1] / "frontend" / "src" / "assets" / "global.css"
@@ -408,8 +436,17 @@ class SynchronizerRegressionTests(unittest.TestCase):
         self.assertIn("backdrop-filter: none !important;", content)
         self.assertIn("box-shadow: none !important;", content)
 
+    def test_sync_manager_has_no_hardcoded_chinese_interface_text(self):
+        sync_manager_path = Path(__file__).resolve().parents[1] / "frontend" / "src" / "components" / "SyncManager.vue"
+        content = sync_manager_path.read_text(encoding="utf-8")
+        self.assertIn("const { t, locale } = useI18n()", content)
+        self.assertIn("t('syncer.title')", content)
+        self.assertFalse(any('\u3400' <= char <= '\u9fff' for char in content))
+
     def test_installer_closes_existing_desktop_app_before_install(self):
         installer_script = Path(__file__).resolve().parents[1] / "installer" / "Open-Anti-Browser.iss"
+        if not installer_script.exists():
+            self.skipTest("installer script is intentionally excluded from the public repository")
         content = installer_script.read_text(encoding="utf-8")
         self.assertIn("CloseApplications=force", content)
         self.assertIn("CloseApplicationsFilter=Open-Anti-Browser.exe", content)

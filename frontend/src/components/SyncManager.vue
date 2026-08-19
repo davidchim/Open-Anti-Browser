@@ -4,22 +4,22 @@
       <div class="sync-hero-main">
         <div>
           <div class="sync-eyebrow">Synchronizer</div>
-          <h2>同步器</h2>
-          <p class="panel-desc">用于多窗口联动操作</p>
+          <h2>{{ t('syncer.title') }}</h2>
+          <p class="panel-desc">{{ t('syncer.subtitle') }}</p>
         </div>
 
         <div class="hero-action-row">
           <el-button type="primary" :disabled="selectedRunningIds.length < 2" :loading="submitting" @click="startSync">
             <el-icon><VideoPlay /></el-icon>
-            启动同步
+            {{ t('syncer.startSync') }}
           </el-button>
           <el-button plain :disabled="!session.running || selectedRunningIds.length < 2" :loading="submitting" @click="restartSync">
             <el-icon><RefreshRight /></el-icon>
-            重启同步
+            {{ t('syncer.restartSync') }}
           </el-button>
           <el-button plain :disabled="!session.running" :loading="submitting" @click="stopSync">
             <el-icon><CloseBold /></el-icon>
-            停止同步
+            {{ t('syncer.stopSync') }}
           </el-button>
           <el-popover
             v-model:visible="settingsVisible"
@@ -36,55 +36,55 @@
             <div class="settings-popover">
               <div class="popover-head">
                 <div>
-                  <div class="popover-title">同步设置</div>
-                  <div class="popover-subtitle">选择需要同步的操作范围</div>
+                  <div class="popover-title">{{ t('syncer.settingsTitle') }}</div>
+                  <div class="popover-subtitle">{{ t('syncer.settingsSubtitle') }}</div>
                 </div>
-                <el-button text @click="settingsVisible = false">关闭</el-button>
+                <el-button text @click="settingsVisible = false">{{ t('common.close') }}</el-button>
               </div>
 
               <div class="settings-section">
-                <div class="section-title">同步内容</div>
+                <div class="section-title">{{ t('syncer.syncContent') }}</div>
                 <div class="toggle-grid">
-                  <label class="toggle-item"><span>页面跳转</span><el-switch v-model="settings.options.sync_navigation" /></label>
-                  <label class="toggle-item"><span>点击动作</span><el-switch v-model="settings.options.sync_click" /></label>
-                  <label class="toggle-item"><span>文本输入</span><el-switch v-model="settings.options.sync_input" /></label>
-                  <label class="toggle-item"><span>滚动动作</span><el-switch v-model="settings.options.sync_scroll" /></label>
-                  <label class="toggle-item"><span>键盘动作</span><el-switch v-model="settings.options.sync_keyboard" /></label>
-                  <label class="toggle-item"><span>鼠标轨迹</span><el-switch v-model="settings.options.sync_mouse_move" /></label>
-                  <label class="toggle-item"><span>标签页与地址栏</span><el-switch v-model="settings.options.sync_browser_ui" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.navigation') }}</span><el-switch v-model="settings.options.sync_navigation" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.clickActions') }}</span><el-switch v-model="settings.options.sync_click" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.textInput') }}</span><el-switch v-model="settings.options.sync_input" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.scrollActions') }}</span><el-switch v-model="settings.options.sync_scroll" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.keyboardActions') }}</span><el-switch v-model="settings.options.sync_keyboard" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.mouseMovement') }}</span><el-switch v-model="settings.options.sync_mouse_move" /></label>
+                  <label class="toggle-item"><span>{{ t('syncer.tabsAndAddressBar') }}</span><el-switch v-model="settings.options.sync_browser_ui" /></label>
                 </div>
               </div>
 
               <div class="settings-section">
-                <div class="section-title">启动行为</div>
+                <div class="section-title">{{ t('syncer.startupBehavior') }}</div>
                 <label class="toggle-item single">
-                  <span>启动时同步主控网址</span>
+                  <span>{{ t('syncer.syncMasterUrlOnStart') }}</span>
                   <el-switch v-model="settings.options.sync_current_url_on_start" />
                 </label>
               </div>
 
               <div class="settings-section">
-                <div class="section-title">操作延迟</div>
+                <div class="section-title">{{ t('syncer.actionDelay') }}</div>
                 <div class="delay-card">
                   <label class="toggle-item single inline">
-                    <span>点击延迟</span>
+                    <span>{{ t('syncer.clickDelay') }}</span>
                     <el-switch v-model="settings.delayClickEnabled" />
                   </label>
                   <div class="delay-line">
                     <el-input-number v-model="settings.delayClickMin" :min="0" :max="5000" controls-position="right" />
-                    <span>至</span>
+                    <span>{{ t('syncer.to') }}</span>
                     <el-input-number v-model="settings.delayClickMax" :min="0" :max="5000" controls-position="right" />
                     <span>ms</span>
                   </div>
                 </div>
                 <div class="delay-card">
                   <label class="toggle-item single inline">
-                    <span>输入延迟</span>
+                    <span>{{ t('syncer.inputDelay') }}</span>
                     <el-switch v-model="settings.delayInputEnabled" />
                   </label>
                   <div class="delay-line">
                     <el-input-number v-model="settings.delayInputMin" :min="0" :max="5000" controls-position="right" />
-                    <span>至</span>
+                    <span>{{ t('syncer.to') }}</span>
                     <el-input-number v-model="settings.delayInputMax" :min="0" :max="5000" controls-position="right" />
                     <span>ms</span>
                   </div>
@@ -92,18 +92,18 @@
               </div>
 
               <div class="settings-section">
-                <div class="section-title">快捷键</div>
+                <div class="section-title">{{ t('syncer.hotkeys') }}</div>
                 <div class="hotkey-grid">
                   <div v-for="item in hotkeyItems" :key="item.key" class="hotkey-item">
-                    <span>{{ item.label }}</span>
+                    <span>{{ t(item.labelKey) }}</span>
                     <el-input v-model="settings.hotkeys[item.key]" clearable />
                   </div>
                 </div>
               </div>
 
               <div class="popover-actions">
-                <el-button @click="settingsVisible = false">取消</el-button>
-                <el-button type="primary" @click="saveSettings">保存</el-button>
+                <el-button @click="settingsVisible = false">{{ t('common.cancel') }}</el-button>
+                <el-button type="primary" @click="saveSettings">{{ t('common.save') }}</el-button>
               </div>
             </div>
           </el-popover>
@@ -112,19 +112,19 @@
 
       <div class="sync-metrics">
         <div class="metric-card">
-          <span>已选窗口</span>
+          <span>{{ t('syncer.selectedWindows') }}</span>
           <strong>{{ selectedRunningIds.length }}</strong>
         </div>
         <div class="metric-card">
-          <span>运行窗口</span>
+          <span>{{ t('syncer.runningWindows') }}</span>
           <strong>{{ runningProfiles.length }}</strong>
         </div>
         <div class="metric-card">
-          <span>当前主控</span>
+          <span>{{ t('syncer.currentMaster') }}</span>
           <strong>{{ masterName }}</strong>
         </div>
         <div class="metric-card accent">
-          <span>状态</span>
+          <span>{{ t('syncer.status') }}</span>
           <strong>{{ syncStateLabel }}</strong>
         </div>
       </div>
@@ -134,28 +134,28 @@
       <section class="page-panel sync-list-panel">
         <div class="panel-title-row sync-list-head">
           <div>
-            <h3>运行中的浏览器</h3>
-            <p class="panel-desc">选择两个及以上窗口后即可开始</p>
+            <h3>{{ t('syncer.runningBrowsers') }}</h3>
+            <p class="panel-desc">{{ t('syncer.selectTwoHint') }}</p>
           </div>
           <div class="list-head-actions">
-            <el-select v-model="groupFilter" class="group-filter" clearable placeholder="全部分组">
-              <el-option label="全部分组" value="" />
-              <el-option v-for="group in groups" :key="group || '_'" :label="group || '未分组'" :value="group" />
+            <el-select v-model="groupFilter" class="group-filter" clearable :placeholder="t('syncer.allGroups')">
+              <el-option :label="t('syncer.allGroups')" value="" />
+              <el-option v-for="group in groups" :key="group || '_'" :label="group || t('syncer.ungrouped')" :value="group" />
             </el-select>
             <el-button plain :disabled="!selectedRunningIds.length" @click="showWindows()">
               <el-icon><FullScreen /></el-icon>
-              显示窗口
+              {{ t('syncer.showWindows') }}
             </el-button>
             <el-button plain :disabled="!selectedRunningIds.length" @click="uniformSize">
-              统一大小
+              {{ t('syncer.uniformSize') }}
             </el-button>
           </div>
         </div>
 
         <div class="sync-selected-bar">
-          <span class="pill">已选 {{ selectedRunningIds.length }}</span>
-          <span class="pill soft">主控 {{ masterName }}</span>
-          <span class="pill soft">跟随 {{ followerCountPreview }}</span>
+          <span class="pill">{{ t('syncer.selectedCount', { n: selectedRunningIds.length }) }}</span>
+          <span class="pill soft">{{ t('syncer.masterValue', { name: masterName }) }}</span>
+          <span class="pill soft">{{ t('syncer.followersCount', { n: followerCountPreview }) }}</span>
         </div>
 
         <div class="sync-table-wrap">
@@ -177,7 +177,7 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="窗口" min-width="280">
+            <el-table-column :label="t('syncer.window')" min-width="280">
               <template #default="{ row }">
                 <div class="profile-card-row">
                   <div class="profile-avatar engine">
@@ -186,15 +186,15 @@
                   <div class="profile-info">
                     <div class="profile-name-line">
                       <span class="profile-name">{{ row.name || row.id.slice(0, 8) }}</span>
-                      <el-tag v-if="effectiveMasterId === row.id" size="small" type="primary" effect="plain">主控</el-tag>
+                      <el-tag v-if="effectiveMasterId === row.id" size="small" type="primary" effect="plain">{{ t('syncer.master') }}</el-tag>
                     </div>
-                    <div class="profile-meta">{{ row.group || '未分组' }} · 调试端口 {{ row.runtime?.remote_debugging_port || '—' }}</div>
+                    <div class="profile-meta">{{ row.group || t('syncer.ungrouped') }} · {{ t('syncer.debugPort') }} {{ row.runtime?.remote_debugging_port || '—' }}</div>
                   </div>
                 </div>
               </template>
             </el-table-column>
 
-            <el-table-column label="内核" width="100">
+            <el-table-column :label="t('syncer.engine')" width="100">
               <template #default="{ row }">
                 <el-tag :type="row.engine === 'chrome' ? 'primary' : 'warning'" effect="plain" size="small">
                   {{ row.engine === 'chrome' ? 'Chrome' : 'Firefox' }}
@@ -202,24 +202,24 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="连接信息" min-width="220">
+            <el-table-column :label="t('syncer.connectionInfo')" min-width="220">
               <template #default="{ row }">
                 <div class="status-stack">
-                  <span class="status-ip">{{ row.runtime?.resolved_ip || '未解析' }}</span>
-                  <span class="status-url">{{ row.runtime?.startup_url || row.runtime?.last_url || '当前标签页待获取' }}</span>
+                  <span class="status-ip">{{ row.runtime?.resolved_ip || t('syncer.unresolved') }}</span>
+                  <span class="status-url">{{ row.runtime?.startup_url || row.runtime?.last_url || t('syncer.currentTabPending') }}</span>
                 </div>
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="150" align="center" fixed="right">
+            <el-table-column :label="t('syncer.actions')" width="150" align="center" fixed="right">
               <template #default="{ row }">
                 <div class="row-actions">
-                  <el-tooltip content="设为主控">
+                  <el-tooltip :content="t('syncer.setAsMaster')">
                     <el-button circle text class="row-action" @click="setMaster(row.id)">
                       <el-icon><Monitor /></el-icon>
                     </el-button>
                   </el-tooltip>
-                  <el-tooltip content="显示窗口">
+                  <el-tooltip :content="t('syncer.showWindow')">
                     <el-button circle text class="row-action" @click="showWindows([row.id])">
                       <el-icon><FullScreen /></el-icon>
                     </el-button>
@@ -231,8 +231,8 @@
 
           <div v-else class="empty-state sync-empty">
             <el-icon><Monitor /></el-icon>
-            <h3>暂无可同步窗口</h3>
-            <p>请先启动两个或以上浏览器窗口</p>
+            <h3>{{ t('syncer.noSyncWindows') }}</h3>
+            <p>{{ t('syncer.startTwoWindowsHint') }}</p>
           </div>
         </div>
       </section>
@@ -240,47 +240,47 @@
       <aside class="page-panel soft sync-console">
         <div class="console-head">
           <div>
-            <h3>操作台</h3>
-            <p class="panel-desc">窗口 文本和标签页操作</p>
+            <h3>{{ t('syncer.console') }}</h3>
+            <p class="panel-desc">{{ t('syncer.consoleDesc') }}</p>
           </div>
-          <el-switch v-model="compactPanel" active-text="精简" inactive-text="完整" />
+          <el-switch v-model="compactPanel" :active-text="t('syncer.compact')" :inactive-text="t('syncer.full')" />
         </div>
 
         <div class="console-status-list">
           <div class="status-card-line" :class="{ active: session.running }">
             <span class="status-dot" :class="session.running ? 'running' : ''"></span>
             <div class="status-copy">
-              <span>同步状态：</span>
+              <span>{{ t('syncer.syncStatus') }}:</span>
               <strong>{{ syncStateLabel }}</strong>
             </div>
           </div>
           <div class="status-card-line">
             <div class="status-copy">
-              <span>已连接：</span>
+              <span>{{ t('syncer.connected') }}:</span>
               <strong>{{ session.connected_followers || 0 }} / {{ session.follower_count || 0 }}</strong>
             </div>
           </div>
           <div class="status-card-line wide">
             <div class="status-copy wide">
-              <span>最近动作：</span>
+              <span>{{ t('syncer.latestAction') }}:</span>
               <strong>{{ lastEventText }}</strong>
             </div>
           </div>
         </div>
 
         <div class="console-primary-actions">
-          <el-button type="primary" :disabled="selectedRunningIds.length < 2" :loading="submitting" @click="startSync">启动同步</el-button>
-          <el-button plain :disabled="!session.running || selectedRunningIds.length < 2" :loading="submitting" @click="restartSync">重启同步</el-button>
-          <el-button plain :disabled="!session.running" :loading="submitting" @click="stopSync">停止同步</el-button>
+          <el-button type="primary" :disabled="selectedRunningIds.length < 2" :loading="submitting" @click="startSync">{{ t('syncer.startSync') }}</el-button>
+          <el-button plain :disabled="!session.running || selectedRunningIds.length < 2" :loading="submitting" @click="restartSync">{{ t('syncer.restartSync') }}</el-button>
+          <el-button plain :disabled="!session.running" :loading="submitting" @click="stopSync">{{ t('syncer.stopSync') }}</el-button>
         </div>
 
         <template v-if="compactPanel">
           <div class="compact-panel">
             <div class="quick-grid two">
-              <el-button plain :disabled="!selectedRunningIds.length" @click="showWindows()">显示窗口</el-button>
-              <el-button plain :disabled="!selectedRunningIds.length" @click="uniformSize">统一大小</el-button>
-              <el-button plain :disabled="!selectedRunningIds.length" @click="arrangeWindows">一键排列</el-button>
-              <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_blank')">关闭空白页</el-button>
+              <el-button plain :disabled="!selectedRunningIds.length" @click="showWindows()">{{ t('syncer.showWindows') }}</el-button>
+              <el-button plain :disabled="!selectedRunningIds.length" @click="uniformSize">{{ t('syncer.uniformSize') }}</el-button>
+              <el-button plain :disabled="!selectedRunningIds.length" @click="arrangeWindows">{{ t('syncer.arrangeNow') }}</el-button>
+              <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_blank')">{{ t('syncer.closeBlankTabs') }}</el-button>
             </div>
           </div>
         </template>
@@ -289,116 +289,112 @@
           <el-segmented
             v-model="activePanel"
             class="console-tabs"
-            :options="[
-              { label: '窗口管理', value: 'windows' },
-              { label: '文本管理', value: 'text' },
-              { label: '标签页管理', value: 'tabs' },
-            ]"
+            :options="panelOptions"
           />
 
           <div v-if="activePanel === 'windows'" class="panel-stack">
             <section class="console-card">
-              <div class="card-title">快速操作</div>
+              <div class="card-title">{{ t('syncer.quickActions') }}</div>
               <div class="quick-grid two">
-                <el-button plain :disabled="!selectedRunningIds.length" @click="showWindows()">显示窗口</el-button>
-                <el-button plain :disabled="!selectedRunningIds.length" @click="uniformSize">统一大小</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="showWindows()">{{ t('syncer.showWindows') }}</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="uniformSize">{{ t('syncer.uniformSize') }}</el-button>
               </div>
             </section>
 
             <section class="console-card">
-              <div class="card-title">窗口排列</div>
+              <div class="card-title">{{ t('syncer.windowArrangement') }}</div>
               <el-form label-position="top" class="panel-form">
-                <el-form-item label="显示器">
-                  <el-select v-model="windowForm.monitorId" placeholder="请选择显示器">
+                <el-form-item :label="t('syncer.monitor')">
+                  <el-select v-model="windowForm.monitorId" :placeholder="t('syncer.selectMonitor')">
                     <el-option v-for="monitor in monitors" :key="monitor.id" :label="monitorText(monitor)" :value="monitor.id" />
                   </el-select>
                 </el-form-item>
-                <el-form-item label="排列方式">
+                <el-form-item :label="t('syncer.arrangement')">
                   <el-radio-group v-model="windowForm.arrangeMode" class="arrange-radio">
-                    <el-radio-button value="grid">宫格</el-radio-button>
-                    <el-radio-button value="overlap">重叠</el-radio-button>
+                    <el-radio-button value="grid">{{ t('syncer.grid') }}</el-radio-button>
+                    <el-radio-button value="overlap">{{ t('syncer.overlap') }}</el-radio-button>
                   </el-radio-group>
                 </el-form-item>
               </el-form>
-              <el-button class="wide-btn" type="primary" plain :disabled="!selectedRunningIds.length" @click="arrangeWindows">一键排列</el-button>
+              <el-button class="wide-btn" type="primary" plain :disabled="!selectedRunningIds.length" @click="arrangeWindows">{{ t('syncer.arrangeNow') }}</el-button>
             </section>
           </div>
 
           <div v-else-if="activePanel === 'text'" class="panel-stack">
             <section class="console-card">
-              <div class="card-title">常用输入</div>
+              <div class="card-title">{{ t('syncer.commonInput') }}</div>
               <div class="quick-grid two">
-                <el-button plain :disabled="!selectedRunningIds.length" @click="runTextAction({ action: 'clear' })">清空内容</el-button>
-                <el-button plain :disabled="!selectedRunningIds.length || !sameText.trim()" @click="runTextAction({ action: 'same', text: sameText })">相同内容</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="runTextAction({ action: 'clear' })">{{ t('syncer.clearContent') }}</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length || !sameText.trim()" @click="runTextAction({ action: 'same', text: sameText })">{{ t('syncer.sameContent') }}</el-button>
               </div>
             </section>
 
             <section class="console-card">
-              <div class="card-title">随机数字</div>
+              <div class="card-title">{{ t('syncer.randomNumbers') }}</div>
               <div class="range-row">
                 <el-input-number v-model="randomRange.start" :precision="3" :step="0.001" controls-position="right" />
-                <span class="range-sep">至</span>
+                <span class="range-sep">{{ t('syncer.to') }}</span>
                 <el-input-number v-model="randomRange.end" :precision="3" :step="0.001" controls-position="right" />
               </div>
-              <el-button class="wide-btn" plain :disabled="!selectedRunningIds.length" @click="runTextAction({ action: 'random', range_start: randomRange.start, range_end: randomRange.end, precision: 3 })">输入随机数字</el-button>
+              <el-button class="wide-btn" plain :disabled="!selectedRunningIds.length" @click="runTextAction({ action: 'random', range_start: randomRange.start, range_end: randomRange.end, precision: 3 })">{{ t('syncer.enterRandomNumbers') }}</el-button>
             </section>
 
             <section class="console-card">
-              <div class="card-title">相同文本</div>
-              <el-input v-model="sameText" type="textarea" :rows="3" placeholder="请输入要同步输入的内容" />
+              <div class="card-title">{{ t('syncer.sameText') }}</div>
+              <el-input v-model="sameText" type="textarea" :rows="3" :placeholder="t('syncer.sameTextPlaceholder')" />
               <div class="card-actions right">
-                <el-button type="primary" plain :disabled="!selectedRunningIds.length || !sameText.trim()" @click="runTextAction({ action: 'same', text: sameText })">输入</el-button>
+                <el-button type="primary" plain :disabled="!selectedRunningIds.length || !sameText.trim()" @click="runTextAction({ action: 'same', text: sameText })">{{ t('syncer.enter') }}</el-button>
               </div>
             </section>
 
             <section class="console-card">
-              <div class="card-title">指定文本组</div>
+              <div class="card-title">{{ t('syncer.designatedTextGroups') }}</div>
               <el-radio-group v-model="designatedMode" class="mode-radio">
-                <el-radio-button value="sequential">顺序</el-radio-button>
-                <el-radio-button value="random">随机</el-radio-button>
-                <el-radio-button value="fixed">固定</el-radio-button>
+                <el-radio-button value="sequential">{{ t('syncer.sequential') }}</el-radio-button>
+                <el-radio-button value="random">{{ t('syncer.random') }}</el-radio-button>
+                <el-radio-button value="fixed">{{ t('syncer.fixed') }}</el-radio-button>
               </el-radio-group>
-              <el-input v-if="designatedMode === 'fixed'" v-model="fixedText" placeholder="请输入固定内容" />
+              <el-input v-if="designatedMode === 'fixed'" v-model="fixedText" :placeholder="t('syncer.fixedTextPlaceholder')" />
               <div class="text-groups">
-                <div v-for="group in designatedGroups" :key="group.id" class="text-group-card">
+                <div v-for="(group, index) in designatedGroups" :key="group.id" class="text-group-card">
                   <div class="text-group-head">
-                    <span>{{ group.title }}</span>
-                    <el-button text :disabled="designatedGroups.length === 1" @click="removeGroup(group.id)">删除</el-button>
+                    <span>{{ t('syncer.textGroup', { n: index + 1 }) }}</span>
+                    <el-button text :disabled="designatedGroups.length === 1" @click="removeGroup(group.id)">{{ t('common.delete') }}</el-button>
                   </div>
-                  <el-input v-model="group.content" type="textarea" :rows="4" placeholder="每行一条内容" />
+                  <el-input v-model="group.content" type="textarea" :rows="4" :placeholder="t('syncer.oneItemPerLine')" />
                 </div>
               </div>
-              <el-button class="wide-btn dashed" plain @click="addGroup">添加文本组</el-button>
+              <el-button class="wide-btn dashed" plain @click="addGroup">{{ t('syncer.addTextGroup') }}</el-button>
               <div class="card-actions right">
-                <el-button type="primary" plain :disabled="!selectedRunningIds.length" @click="runTextAction({ action: 'designated', groups: designatedGroups, designated_mode: designatedMode, fixed_text: fixedText })">执行输入</el-button>
+                <el-button type="primary" plain :disabled="!selectedRunningIds.length" @click="runTextAction({ action: 'designated', groups: designatedGroups, designated_mode: designatedMode, fixed_text: fixedText })">{{ t('syncer.executeInput') }}</el-button>
               </div>
             </section>
           </div>
 
           <div v-else class="panel-stack">
             <section class="console-card">
-              <div class="card-title">标签页整理</div>
+              <div class="card-title">{{ t('syncer.tabCleanup') }}</div>
               <div class="quick-grid two">
-                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('unify_tabs')">统一标签页</el-button>
-                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_others')">关闭其他</el-button>
-                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_current')">关闭当前</el-button>
-                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_blank')">关闭空白页</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('unify_tabs')">{{ t('syncer.unifyTabs') }}</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_others')">{{ t('syncer.closeOthers') }}</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_current')">{{ t('syncer.closeCurrent') }}</el-button>
+                <el-button plain :disabled="!selectedRunningIds.length" @click="runTabAction('close_blank')">{{ t('syncer.closeBlankTabs') }}</el-button>
               </div>
             </section>
 
             <section class="console-card">
-              <div class="card-title">批量打开网址</div>
-              <el-input v-model="urlInput" type="textarea" :rows="4" placeholder="每行一个网址" />
+              <div class="card-title">{{ t('syncer.openUrlsInBulk') }}</div>
+              <el-input v-model="urlInput" type="textarea" :rows="4" :placeholder="t('syncer.oneUrlPerLine')" />
               <label class="toggle-item single block-gap">
-                <span>首个网址在当前标签页打开</span>
+                <span>{{ t('syncer.firstUrlInCurrentTab') }}</span>
                 <el-switch v-model="firstInCurrentTab" />
               </label>
-              <el-button class="wide-btn" plain :disabled="!selectedRunningIds.length || !parsedUrls.length" @click="openUrls">批量打开</el-button>
+              <el-button class="wide-btn" plain :disabled="!selectedRunningIds.length || !parsedUrls.length" @click="openUrls">{{ t('syncer.openInBulk') }}</el-button>
             </section>
           </div>
         </template>
 
-        <el-alert v-if="session.last_error" class="console-error" type="error" show-icon :closable="false">{{ session.last_error }}</el-alert>
+        <el-alert v-if="session.last_error" class="console-error" type="error" show-icon :closable="false">{{ localizedLastError }}</el-alert>
       </aside>
     </div>
   </div>
@@ -408,11 +404,13 @@
 import { computed, onActivated, onDeactivated, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CloseBold, FullScreen, Monitor, RefreshRight, Setting, VideoPlay } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { useProfileStore } from '../stores/profile.js'
 import chromeIcon from '../assets/chrome.svg'
 import firefoxIcon from '../assets/firefox.png'
 
 const store = useProfileStore()
+const { t, locale } = useI18n()
 const groupFilter = ref('')
 const selectedIds = ref([])
 const masterId = ref('')
@@ -425,7 +423,7 @@ const sameText = ref('')
 const firstInCurrentTab = ref(true)
 const designatedMode = ref('sequential')
 const fixedText = ref('')
-const designatedGroups = ref([{ id: crypto.randomUUID(), title: '文本组1', content: '' }])
+const designatedGroups = ref([{ id: crypto.randomUUID(), content: '' }])
 const randomRange = reactive({ start: 0.001, end: 0.009 })
 const windowForm = reactive({ monitorId: '', arrangeMode: 'grid' })
 
@@ -439,17 +437,17 @@ const UI_KEY = 'oab.sync.ui.v6'
 
 const settings = reactive(loadSettings())
 const hotkeyItems = [
-  { key: 'start_sync', label: '启动同步' },
-  { key: 'stop_sync', label: '停止同步' },
-  { key: 'restart_sync', label: '重启同步' },
-  { key: 'toggle_panel', label: '切换操作台' },
-  { key: 'arrange_windows', label: '一键排列' },
-  { key: 'random_input', label: '随机数字输入' },
-  { key: 'same_text', label: '相同文本输入' },
-  { key: 'unify_tabs', label: '统一标签页' },
-  { key: 'close_others', label: '关闭其他标签页' },
-  { key: 'close_current', label: '关闭当前标签页' },
-  { key: 'close_blank', label: '关闭空白标签页' },
+  { key: 'start_sync', labelKey: 'syncer.hotkeyStart' },
+  { key: 'stop_sync', labelKey: 'syncer.hotkeyStop' },
+  { key: 'restart_sync', labelKey: 'syncer.hotkeyRestart' },
+  { key: 'toggle_panel', labelKey: 'syncer.hotkeyTogglePanel' },
+  { key: 'arrange_windows', labelKey: 'syncer.hotkeyArrange' },
+  { key: 'random_input', labelKey: 'syncer.hotkeyRandomInput' },
+  { key: 'same_text', labelKey: 'syncer.hotkeySameText' },
+  { key: 'unify_tabs', labelKey: 'syncer.hotkeyUnifyTabs' },
+  { key: 'close_others', labelKey: 'syncer.hotkeyCloseOthers' },
+  { key: 'close_current', labelKey: 'syncer.hotkeyCloseCurrent' },
+  { key: 'close_blank', labelKey: 'syncer.hotkeyCloseBlank' },
 ]
 
 const session = computed(() => store.synchronizer || { running: false, follower_count: 0, connected_followers: 0, last_event: null, last_error: '' })
@@ -473,26 +471,33 @@ const monitors = computed(() => store.syncMonitors || [])
 const parsedUrls = computed(() => urlInput.value.split(/\r?\n/).map(item => item.trim()).filter(Boolean))
 const masterName = computed(() => runningProfiles.value.find(item => item.id === effectiveMasterId.value)?.name || '—')
 const followerCountPreview = computed(() => Math.max(0, selectedRunningIds.value.length - (effectiveMasterId.value ? 1 : 0)))
-const syncStateLabel = computed(() => session.value.running ? '同步中' : '未启动')
+const panelOptions = computed(() => [
+  { label: t('syncer.windowManagement'), value: 'windows' },
+  { label: t('syncer.textManagement'), value: 'text' },
+  { label: t('syncer.tabManagement'), value: 'tabs' },
+])
+const syncStateLabel = computed(() => session.value.running ? t('syncer.running') : t('syncer.stopped'))
 const lastEventText = computed(() => {
   const event = session.value.last_event
-  if (!event?.type) return '暂无'
+  if (!event?.type) return t('syncer.none')
   const labels = {
-    navigate: '页面跳转',
-    manual_navigate: '打开网址',
-    sync_current_url: '同步网址',
-    browser_close_current: '关闭标签页',
-    click: '点击',
-    input: '输入',
-    change: '表单变化',
-    wheel: '滚动',
-    scroll: '滚动',
-    keydown: '键盘',
-    mouse_move: '鼠标轨迹',
+    navigate: 'syncer.eventNavigate',
+    manual_navigate: 'syncer.eventOpenUrl',
+    sync_current_url: 'syncer.eventSyncUrl',
+    browser_close_current: 'syncer.eventCloseTab',
+    click: 'syncer.eventClick',
+    input: 'syncer.eventInput',
+    change: 'syncer.eventFormChange',
+    wheel: 'syncer.eventScroll',
+    scroll: 'syncer.eventScroll',
+    keydown: 'syncer.eventKeyboard',
+    mouse_move: 'syncer.eventMouseMovement',
   }
-  const label = labels[event.type] || event.type
-  return event.summary ? `${label} · ${event.summary}` : label
+  const label = labels[event.type] ? t(labels[event.type]) : event.type
+  const summary = localizeEventSummary(event.summary)
+  return summary ? `${label} · ${summary}` : label
 })
+const localizedLastError = computed(() => localizeSyncError(session.value.last_error))
 
 watch(() => session.value.master_profile_id, value => {
   if (value) masterId.value = value
@@ -611,7 +616,7 @@ function saveUiState() {
 function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
   settingsVisible.value = false
-  ElMessage.success('同步设置已保存')
+  ElMessage.success(t('syncer.settingsSaved'))
 }
 
 async function refreshAll(forceProfiles = false) {
@@ -700,10 +705,10 @@ function setMaster(id) {
 }
 
 function syncPayload() {
-  if (selectedRunningIds.value.length < 2) throw new Error('请至少选择 2 个已启动窗口')
+  if (selectedRunningIds.value.length < 2) throw new Error(t('syncer.selectTwoError'))
   const master = effectiveMasterId.value || selectedRunningIds.value[0]
   const followers = selectedRunningIds.value.filter(id => id !== master)
-  if (!followers.length) throw new Error('请至少选择 2 个已启动窗口')
+  if (!followers.length) throw new Error(t('syncer.selectTwoError'))
   return {
     master_profile_id: master,
     follower_profile_ids: followers,
@@ -724,9 +729,9 @@ async function startSync() {
   try {
     await store.startSynchronizer(syncPayload())
     startPolling()
-    ElMessage.success('同步已启动')
+    ElMessage.success(t('syncer.started'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   } finally {
     submitting.value = false
   }
@@ -737,9 +742,9 @@ async function stopSync() {
   try {
     await store.stopSynchronizer()
     startPolling()
-    ElMessage.success('同步已停止')
+    ElMessage.success(t('syncer.stoppedMessage'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   } finally {
     submitting.value = false
   }
@@ -751,74 +756,74 @@ async function restartSync() {
     if (session.value.running) await store.stopSynchronizer()
     await store.startSynchronizer(syncPayload())
     startPolling()
-    ElMessage.success('同步已重启')
+    ElMessage.success(t('syncer.restarted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   } finally {
     submitting.value = false
   }
 }
 
 async function showWindows(ids = selectedRunningIds.value) {
-  if (!ids.length) return ElMessage.warning('请先选择窗口')
+  if (!ids.length) return ElMessage.warning(t('syncer.selectWindowsFirst'))
   try {
     await store.showSyncWindows(ids)
-    ElMessage.success('操作已执行')
+    ElMessage.success(t('syncer.actionCompleted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   }
 }
 
 async function uniformSize() {
-  if (!selectedRunningIds.value.length) return ElMessage.warning('请先选择窗口')
+  if (!selectedRunningIds.value.length) return ElMessage.warning(t('syncer.selectWindowsFirst'))
   try {
     await store.uniformSyncWindows(selectedRunningIds.value)
-    ElMessage.success('操作已执行')
+    ElMessage.success(t('syncer.actionCompleted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   }
 }
 
 async function arrangeWindows() {
-  if (!selectedRunningIds.value.length) return ElMessage.warning('请先选择窗口')
+  if (!selectedRunningIds.value.length) return ElMessage.warning(t('syncer.selectWindowsFirst'))
   try {
     await store.arrangeSyncWindows({
       profile_ids: selectedRunningIds.value,
       monitor_id: windowForm.monitorId,
       arrange_mode: windowForm.arrangeMode,
     })
-    ElMessage.success('操作已执行')
+    ElMessage.success(t('syncer.actionCompleted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   }
 }
 
 async function runTextAction(payload) {
-  if (!selectedRunningIds.value.length) return ElMessage.warning('请先选择窗口')
+  if (!selectedRunningIds.value.length) return ElMessage.warning(t('syncer.selectWindowsFirst'))
   try {
     await store.runSyncTextAction({ profile_ids: selectedRunningIds.value, ...payload })
-    ElMessage.success('操作已执行')
+    ElMessage.success(t('syncer.actionCompleted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   }
 }
 
 async function runTabAction(action) {
-  if (!selectedRunningIds.value.length) return ElMessage.warning('请先选择窗口')
+  if (!selectedRunningIds.value.length) return ElMessage.warning(t('syncer.selectWindowsFirst'))
   try {
     await store.runSyncTabAction({
       profile_ids: selectedRunningIds.value,
       action,
       master_profile_id: effectiveMasterId.value,
     })
-    ElMessage.success('操作已执行')
+    ElMessage.success(t('syncer.actionCompleted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   }
 }
 
 async function openUrls() {
-  if (!selectedRunningIds.value.length) return ElMessage.warning('请先选择窗口')
+  if (!selectedRunningIds.value.length) return ElMessage.warning(t('syncer.selectWindowsFirst'))
   try {
     await store.runSyncTabAction({
       profile_ids: selectedRunningIds.value,
@@ -826,16 +831,15 @@ async function openUrls() {
       urls: parsedUrls.value,
       first_in_current: firstInCurrentTab.value,
     })
-    ElMessage.success('操作已执行')
+    ElMessage.success(t('syncer.actionCompleted'))
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(localizeSyncError(error.message))
   }
 }
 
 function addGroup() {
   designatedGroups.value.push({
     id: crypto.randomUUID(),
-    title: `文本组${designatedGroups.value.length + 1}`,
     content: '',
   })
 }
@@ -847,7 +851,33 @@ function removeGroup(id) {
 
 function monitorText(monitor) {
   const work = monitor?.work_area || {}
-  return `${monitor.name}${monitor.primary ? ' · 主屏' : ''}${work.width ? ` ${work.width}×${work.height}` : ''}`
+  return `${monitor.name}${monitor.primary ? ` · ${t('syncer.primaryMonitor')}` : ''}${work.width ? ` ${work.width}×${work.height}` : ''}`
+}
+
+function localizeSyncError(message) {
+  const value = String(message || '')
+  if (locale.value !== 'en-US') return value
+  const exactMessages = {
+    '\u8bf7\u9009\u62e9\u4e3b\u6d4f\u89c8\u5668': t('syncer.errorSelectMaster'),
+    '\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u8ddf\u968f\u6d4f\u89c8\u5668': t('syncer.errorSelectFollower'),
+    '\u8bf7\u8f93\u5165\u7f51\u5740': t('syncer.errorEnterUrl'),
+    '\u540c\u6b65\u5668\u8fd8\u6ca1\u6709\u542f\u52a8': t('syncer.errorNotStarted'),
+    '\u4e3b\u6d4f\u89c8\u5668\u4e0d\u53ef\u7528': t('syncer.errorMasterUnavailable'),
+    '\u4e3b\u6d4f\u89c8\u5668\u5f53\u524d\u6807\u7b7e\u9875\u6ca1\u6709\u53ef\u540c\u6b65\u7684\u7f51\u5740': t('syncer.errorNoMasterUrl'),
+    '\u4e3b\u6d4f\u89c8\u5668\u8fd8\u6ca1\u6709\u542f\u52a8\uff0c\u65e0\u6cd5\u5f00\u542f\u540c\u6b65\u5668': t('syncer.errorMasterNotRunning'),
+    '\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u5df2\u542f\u52a8\u7684\u6d4f\u89c8\u5668': t('syncer.errorSelectRunningBrowser'),
+    '\u8bf7\u5148\u586b\u5199\u6307\u5b9a\u6587\u672c\u5185\u5bb9': t('syncer.errorEnterDesignatedText'),
+  }
+  if (exactMessages[value]) return exactMessages[value]
+  return /[\u3400-\u9fff]/.test(value) ? t('syncer.operationFailed') : value
+}
+
+function localizeEventSummary(summary) {
+  const value = String(summary || '')
+  if (!value || locale.value !== 'en-US') return value
+  const closedTabs = value.match(/^\u5df2\u5173\u95ed\s*(\d+)\s*\u4e2a\u6807\u7b7e\u9875$/)
+  if (closedTabs) return t('syncer.closedTabs', { n: Number(closedTabs[1]) })
+  return /[\u3400-\u9fff]/.test(value) ? '' : value
 }
 
 function normalizeShortcut(value) {

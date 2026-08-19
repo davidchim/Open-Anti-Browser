@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import argparse
 import atexit
+from collections import Counter
+from datetime import datetime
 import hashlib
+import json
 import os
 import socket
+import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
 
+import psutil
 from uvicorn import Config, Server
 
 from backend.config import APP_ROOT, ASSETS_DIR, FRONTEND_DIST_DIR
@@ -20,6 +25,8 @@ from backend.ui_bridge import register_directory_picker_callback, register_exit_
 
 
 APP_TITLE = "Open-Anti-Browser · 开源指纹浏览器"
+DESKTOP_SOFTWARE_RENDERING_MARKER = APP_ROOT / "data" / "desktop-software-rendering.flag"
+DESKTOP_LOG_PATH = APP_ROOT / "data" / "desktop.log"
 
 
 def find_available_port(preferred: int = 8000, span: int = 20) -> int:
@@ -43,6 +50,31 @@ def wait_for_port(port: int, timeout: float = 20.0) -> None:
                 return
         time.sleep(0.2)
     raise RuntimeError("本地服务启动超时。")
+
+
+def _write_desktop_log(message: str) -> None:
+    try:
+        DESKTOP_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if DESKTOP_LOG_PATH.exists() and DESKTOP_LOG_PATH.stat().st_size > 512 * 1024:
+            tail = DESKTOP_LOG_PATH.read_bytes()[-256 * 1024:]
+            DESKTOP_LOG_PATH.write_bytes(tail)
+        timestamp = datetime.now().astimezone().isoformat(timespec="seconds")
+        with DESKTOP_LOG_PATH.open("a", encoding="utf-8") as stream:
+            stream.write(f"[{timestamp}] {message}\n")
+    except OSError:
+        pass
+
+
+def _frontend_build_token() -> str:
+    index_path = FRONTEND_DIST_DIR / "index.html"
+    try:
+        return hashlib.sha256(index_path.read_bytes()).hexdigest()[:12]
+    except OSError:
+        return "missing"
+
+
+def desktop_shell_url(port: int) -> str:
+    return f"http://127.0.0.1:{port}/?shell=desktop&build={_frontend_build_token()}"
 
 
 def resolve_window_icon_path() -> Path | None:
@@ -85,6 +117,8 @@ def _desktop_chromium_flags() -> list[str]:
     desired_flags = [
         "--disable-features=CalculateNativeWinOcclusion,BackForwardCache",
     ]
+    if _desktop_qt_opengl_backend() == "software":
+        desired_flags.extend(["--disable-gpu", "--disable-gpu-compositing"])
     current_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").strip().split()
     merged_flags = [flag for flag in current_flags if flag]
     existing_flags = set(merged_flags)
@@ -99,12 +133,35 @@ def _desktop_qt_opengl_backend() -> str:
     override = str(os.environ.get("OAB_DESKTOP_QT_OPENGL") or "").strip().lower()
     if override in {"software", "desktop", "angle"}:
         return override
+    if DESKTOP_SOFTWARE_RENDERING_MARKER.exists():
+        return "software"
     return "angle"
 
 
 def _configure_desktop_webview_env() -> None:
     os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(_desktop_chromium_flags()).strip()
     os.environ["QT_OPENGL"] = _desktop_qt_opengl_backend()
+
+
+def _sampled_colors_look_blank(samples: list[tuple[int, int, int]], threshold: float = 0.985) -> bool:
+    if not samples:
+        return True
+    buckets = Counter((red // 16, green // 16, blue // 16) for red, green, blue in samples)
+    return max(buckets.values()) / len(samples) >= threshold
+
+
+def _desktop_restart_command(*arguments: str) -> list[str]:
+    if getattr(sys, "frozen", False):
+        return [sys.executable, *arguments]
+    return [sys.executable, str(Path(__file__).resolve()), *arguments]
+
+
+def _wait_for_process_exit(pid: int, timeout: float = 20.0) -> None:
+    if pid <= 0 or pid == os.getpid():
+        return
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and psutil.pid_exists(pid):
+        time.sleep(0.15)
 
 
 def run_backend_only(port: int | None = None) -> int:
@@ -130,7 +187,7 @@ def run_backend_only(port: int | None = None) -> int:
 
 def run_desktop() -> int:
     _configure_desktop_webview_env()
-    from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal, Slot
+    from PySide6.QtCore import QObject, Qt, QTimer, QUrl, QUrlQuery, Signal, Slot
     from PySide6.QtGui import QAction, QCloseEvent, QIcon
     from PySide6.QtNetwork import QLocalServer, QLocalSocket
     from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
@@ -170,6 +227,14 @@ def run_desktop() -> int:
             )
             self._result = chosen or None
 
+    class DesktopWebEnginePage(QWebEnginePage):
+        def javaScriptConsoleMessage(self, level, message: str, line_number: int, source_id: str) -> None:
+            level_name = getattr(level, "name", str(level))
+            if "warning" in level_name.lower() or "error" in level_name.lower():
+                _write_desktop_log(
+                    f"javascript {level_name}: {message} ({source_id or 'inline'}:{line_number})"
+                )
+
     class DesktopMainWindow(QMainWindow):
         def __init__(self, url: str, server: Server, thread: threading.Thread) -> None:
             super().__init__()
@@ -180,6 +245,9 @@ def run_desktop() -> int:
             self._force_exit = False
             self._tray_notified = False
             self._recovering_renderer = False
+            self._page_recovery_attempts = 0
+            self._load_generation = 0
+            self._software_restart_started = False
             self.tray_icon: QSystemTrayIcon | None = None
 
             self.setWindowTitle(APP_TITLE)
@@ -191,9 +259,10 @@ def run_desktop() -> int:
             self.web_profile.setPersistentStoragePath(str(APP_ROOT / "data" / "qt-webview"))
             self.web_profile.setCachePath(str(APP_ROOT / "data" / "qt-webview-cache"))
             self.web_profile.setPersistentCookiesPolicy(QWebEngineProfile.ForcePersistentCookies)
+            self.web_profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.NoCache)
 
             self.browser = QWebEngineView(self)
-            self.browser.setPage(QWebEnginePage(self.web_profile, self.browser))
+            self.browser.setPage(DesktopWebEnginePage(self.web_profile, self.browser))
             self.browser.settings().setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
             self.browser.settings().setAttribute(QWebEngineSettings.JavascriptEnabled, True)
             self.browser.settings().setAttribute(QWebEngineSettings.FullScreenSupportEnabled, True)
@@ -223,16 +292,124 @@ def run_desktop() -> int:
             self.tray_icon = tray
 
         def _handle_load_finished(self, ok: bool) -> None:
+            self._load_generation += 1
+            generation = self._load_generation
+            _write_desktop_log(f"page load finished: ok={ok}, url={self.browser.url().toString()}")
             if ok:
                 self._recovering_renderer = False
+                QTimer.singleShot(1800, lambda: self._verify_page_contents(generation))
                 return
             if self._closing:
+                return
+            self._recover_local_page("page-load-failed")
+
+        def _verify_page_contents(self, generation: int) -> None:
+            if self._closing or generation != self._load_generation:
+                return
+            script = """
+                (() => {
+                    const app = document.getElementById('app');
+                    return JSON.stringify({
+                        ready: Boolean(app && app.childElementCount > 0),
+                        textLength: (app?.innerText || '').trim().length,
+                    });
+                })()
+            """
+            self.browser.page().runJavaScript(
+                script,
+                lambda result: self._handle_page_probe(generation, result),
+            )
+
+        def _handle_page_probe(self, generation: int, result) -> None:
+            if self._closing or generation != self._load_generation:
+                return
+            try:
+                probe = json.loads(result) if isinstance(result, str) else result
+            except (TypeError, ValueError):
+                probe = None
+            ready = bool(isinstance(probe, dict) and probe.get("ready") and probe.get("textLength", 0) > 0)
+            if not ready:
+                _write_desktop_log(f"page probe failed: {result!r}")
+                self._recover_local_page("empty-app-root")
+                return
+            QTimer.singleShot(250, lambda: self._verify_rendered_pixels(generation))
+
+        def _verify_rendered_pixels(self, generation: int) -> None:
+            if self._closing or generation != self._load_generation or not self.isVisible():
+                return
+            pixmap = self.browser.grab()
+            image = pixmap.toImage()
+            if image.isNull() or image.width() < 20 or image.height() < 20:
+                return
+            x_step = max(1, image.width() // 30)
+            y_step = max(1, image.height() // 20)
+            samples = [
+                image.pixelColor(x, y).getRgb()[:3]
+                for y in range(y_step // 2, image.height(), y_step)
+                for x in range(x_step // 2, image.width(), x_step)
+            ]
+            if _sampled_colors_look_blank(samples):
+                _write_desktop_log("page DOM is ready but the window capture is blank")
+                self._restart_with_software_rendering("window-capture-blank")
+
+        def _recovery_url(self) -> QUrl:
+            url = QUrl(self.url)
+            query = QUrlQuery(url)
+            query.removeAllQueryItems("recovery")
+            query.addQueryItem("recovery", str(time.time_ns()))
+            url.setQuery(query)
+            return url
+
+        def _recover_local_page(self, reason: str) -> None:
+            if self._closing:
+                return
+            if self._page_recovery_attempts == 0:
+                self._page_recovery_attempts += 1
+                _write_desktop_log(f"clearing web cache and reloading: reason={reason}")
+                self.web_profile.clearHttpCache()
+                QTimer.singleShot(350, lambda: self.browser.setUrl(self._recovery_url()))
+                return
+            if _desktop_qt_opengl_backend() != "software":
+                self._restart_with_software_rendering(reason)
                 return
             QMessageBox.critical(
                 self,
                 APP_TITLE,
-                f"页面加载失败。\n\n请确认本地服务是否正常启动：{self.url}",
+                "界面自动恢复失败。请重新打开程序；问题记录已保存在程序数据目录。",
             )
+
+        def _restart_with_software_rendering(self, reason: str) -> None:
+            if self._closing or self._software_restart_started:
+                return
+            if _desktop_qt_opengl_backend() == "software":
+                self._recover_local_page(reason)
+                return
+            self._software_restart_started = True
+            try:
+                DESKTOP_SOFTWARE_RENDERING_MARKER.parent.mkdir(parents=True, exist_ok=True)
+                DESKTOP_SOFTWARE_RENDERING_MARKER.write_text(reason, encoding="utf-8")
+                command = _desktop_restart_command(
+                    "--software-rendering",
+                    f"--restart-wait-pid={os.getpid()}",
+                )
+                creation_flags = 0
+                if os.name == "nt":
+                    creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+                subprocess.Popen(command, close_fds=True, creationflags=creation_flags)
+                _write_desktop_log(f"restarting with software rendering: reason={reason}")
+                if self.tray_icon is not None:
+                    self.tray_icon.showMessage(
+                        APP_TITLE,
+                        "正在切换兼容显示模式并重新打开。",
+                        QSystemTrayIcon.Information,
+                        2500,
+                    )
+                self._force_exit = True
+                QTimer.singleShot(0, self.close)
+            except Exception as exc:
+                self._software_restart_started = False
+                _write_desktop_log(f"software rendering restart failed: {exc}")
+                QMessageBox.critical(self, APP_TITLE, f"界面恢复失败：{exc}")
 
         def _handle_render_process_terminated(self, termination_status, exit_code: int) -> None:
             if self._closing:
@@ -240,6 +417,12 @@ def run_desktop() -> int:
             if self._recovering_renderer:
                 return
             self._recovering_renderer = True
+            _write_desktop_log(
+                f"render process terminated: status={termination_status}, exit_code={exit_code}"
+            )
+            if _desktop_qt_opengl_backend() != "software":
+                self._restart_with_software_rendering("render-process-terminated")
+                return
             if self.tray_icon is not None:
                 self.tray_icon.showMessage(
                     APP_TITLE,
@@ -247,7 +430,7 @@ def run_desktop() -> int:
                     QSystemTrayIcon.Warning,
                     2500,
                 )
-            QTimer.singleShot(450, lambda: self.browser.setUrl(QUrl(self.url)))
+            QTimer.singleShot(450, lambda: self.browser.setUrl(self._recovery_url()))
 
         def _handle_tray_activated(self, reason) -> None:
             if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
@@ -327,7 +510,7 @@ def run_desktop() -> int:
         QMessageBox.critical(None, APP_TITLE, f"启动失败：\n{exc}")
         return 1
 
-    window = DesktopMainWindow(f"http://127.0.0.1:{port}?shell=desktop", server, thread)
+    window = DesktopMainWindow(desktop_shell_url(port), server, thread)
     directory_picker_bridge = DirectoryPickerBridge(window)
 
     def handle_instance_activation() -> None:
@@ -366,7 +549,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--backend-only", action="store_true")
     parser.add_argument("--port", type=int, default=None)
+    parser.add_argument("--software-rendering", action="store_true")
+    parser.add_argument("--restart-wait-pid", type=int, default=None)
     args, _ = parser.parse_known_args(argv)
+
+    if args.restart_wait_pid:
+        _wait_for_process_exit(args.restart_wait_pid)
+    if args.software_rendering:
+        os.environ["OAB_DESKTOP_QT_OPENGL"] = "software"
 
     if args.backend_only:
         return run_backend_only(args.port)

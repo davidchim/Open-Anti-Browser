@@ -65,29 +65,29 @@ DEFAULT_FIREFOX_WEBRTC_BLOCK_EXTENSION = (
 
 CHROME_INSTALLER_URL = (
     "https://github.com/adryfish/fingerprint-chromium/releases/download/"
-    "144.0.7559.132/ungoogled-chromium_144.0.7559.132-1.1_installer_x64.exe"
+    "148.0.7778.215/ungoogled-chromium_148.0.7778.215-1.1_installer_x64.exe"
 )
 FIREFOX_INSTALLER_URL = (
-    "https://github.com/LoseNine/ruyipage/releases/download/151-ruyi/"
-    "firefox-151.0a1.en-US.win64.installer.exe"
+    "https://github.com/LoseNine/firefox-fingerprintBrowser/releases/download/151-5/"
+    "firefox-155.0a1.en-US.win64-20260803.zip"
 )
 
 ENGINE_METADATA = {
     "chrome": {
-        "name": "Fingerprint Chromium 144",
+        "name": "Fingerprint Chromium 148",
         "default_executable": str(DEFAULT_CHROME_EXECUTABLE),
         "system_executable": str(SYSTEM_CHROME_EXECUTABLE),
         "installer_url": CHROME_INSTALLER_URL,
-        "download_name": "fingerprint-chromium-144-installer.exe",
+        "download_name": "ungoogled-chromium_148.0.7778.215-1.1_installer_x64.exe",
         "engine_dir": "chrome",
         "bundle_dir": str(ENGINES_DIR / "chrome"),
     },
     "firefox": {
-        "name": "Firefox Fingerprint Browser 151",
+        "name": "Firefox Fingerprint Browser 155",
         "default_executable": str(DEFAULT_FIREFOX_EXECUTABLE),
         "system_executable": str(SYSTEM_FIREFOX_EXECUTABLE),
         "installer_url": FIREFOX_INSTALLER_URL,
-        "download_name": "firefox-fingerprint-151-installer.exe",
+        "download_name": "firefox-155.0a1.en-US.win64-20260803.zip",
         "engine_dir": "firefox",
         "bundle_dir": str(ENGINES_DIR / "firefox"),
     },

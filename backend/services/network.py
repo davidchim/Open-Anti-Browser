@@ -13,7 +13,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 import psutil
 import pycountry
@@ -127,9 +127,11 @@ def normalize_proxy_config(proxy: Any) -> dict[str, Any] | None:
         raise ValueError(f"Invalid proxy server: {proxy}")
 
     scheme = parsed_url.scheme or "http"
-    username = parsed_url.username or username
-    password = parsed_url.password or password
-    ip_port = f"{parsed_url.hostname}:{parsed_url.port}"
+    username = unquote(parsed_url.username) if parsed_url.username is not None else username
+    password = unquote(parsed_url.password) if parsed_url.password is not None else password
+    host = parsed_url.hostname
+    display_host = f"[{host}]" if host and ":" in host else host
+    ip_port = f"{display_host}:{parsed_url.port}"
     browser_proxy = f"{scheme}://{ip_port}"
     request_scheme = "socks5h" if scheme == "socks5" else scheme
 
@@ -148,7 +150,7 @@ def normalize_proxy_config(proxy: Any) -> dict[str, Any] | None:
         "username": username,
         "password": password,
         "ip_port": ip_port,
-        "host": parsed_url.hostname,
+        "host": host,
         "port": parsed_url.port,
     }
 
@@ -159,7 +161,9 @@ def proxy_to_profile_proxy(proxy: dict[str, Any]) -> dict[str, Any] | None:
     proxy_type = str(proxy.get("type") or "none").lower()
     if proxy_type == "none" or not proxy.get("host") or not proxy.get("port"):
         return None
-    server = f"{proxy_type}://{proxy['host']}:{proxy['port']}"
+    host = str(proxy["host"])
+    display_host = f"[{host}]" if ":" in host else host
+    server = f"{proxy_type}://{display_host}:{proxy['port']}"
     return normalize_proxy_config(
         {
             "server": server,
